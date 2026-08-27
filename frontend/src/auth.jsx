@@ -1,27 +1,25 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { api } from './api';
+
 export function Register() {
-  const [name, setName] = useState(''),
-    [email, setEmail] = useState(''),
-    [password, setPassword] = useState(''),
-    [error, setError] = useState(''),
-    nav = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const nav = useNavigate();
+
   const submit = async (e) => {
     e.preventDefault();
     try {
-      const r = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const b = await r.json();
-      if (!r.ok) throw new Error(b.message || 'تعذر إنشاء الحساب');
-      localStorage.setItem('aura_token', b.data.token);
+      const result = await api.register({ name, email, password });
+      localStorage.setItem('aura_token', result.token);
       nav('/');
     } catch (x) {
       setError(x.message);
     }
   };
+
   return (
     <main className="auth">
       <form className="auth-box" onSubmit={submit}>

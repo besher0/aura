@@ -19,7 +19,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({ template: './frontend/public/index.html' }),
     new webpack.DefinePlugin({
-      'process.env.API_BASE_URL': JSON.stringify(process.env.API_BASE_URL || ''),
+      __API_BASE_URL__: JSON.stringify(process.env.API_BASE_URL || ''),
     }),
   ],
   devServer: { port: 8080, historyApiFallback: true, proxy: [{ context: ['/api'], target: 'http://localhost:8081' }] },

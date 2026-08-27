@@ -73,7 +73,7 @@ function ProductCard({ product, onAdd }) {
         <span className="muted">{product.category?.name || 'منتج Aura'}</span>
         <div className="card-actions">
           <span className="price">{Number(product.price).toLocaleString('ar-SA')} ر.س</span>
-          <span>
+          <span className="card-buttons">
             <button className="icon-btn" onClick={favorite} aria-label="إضافة للمفضلة">
               <span className="material-symbols-outlined">favorite_border</span>
             </button>
