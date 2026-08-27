@@ -17,7 +17,7 @@ body {
   margin: 0;
   background: var(--surface-low);
   color: var(--ink);
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'Almarai', sans-serif;
 }
 button,
 input,
@@ -33,7 +33,7 @@ h2,
 h3,
 h4,
 .label {
-  font-family: 'Be Vietnam Pro', sans-serif;
+  font-family: 'Almarai', sans-serif;
 }
 a {
   color: inherit;
@@ -60,7 +60,7 @@ a {
   z-index: 5;
 }
 .brand {
-  font: 600 25px 'Be Vietnam Pro';
+  font: 700 25px 'Almarai';
   color: var(--primary);
 }
 .topbar button {
@@ -156,7 +156,7 @@ a {
 }
 .price {
   color: var(--primary);
-  font: 600 18px 'Be Vietnam Pro';
+  font: 700 18px 'Almarai';
 }
 .card-actions {
   display: flex;
@@ -247,7 +247,7 @@ a {
 }
 .stat strong {
   display: block;
-  font: 600 28px 'Be Vietnam Pro';
+  font: 700 28px 'Almarai';
   margin-top: 8px;
 }
 .auth {
