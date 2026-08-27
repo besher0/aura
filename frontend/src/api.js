@@ -1,6 +1,8 @@
+const API_BASE_URL = (process.env.API_BASE_URL || '').replace(/\/$/, '');
+
 export const request = async (url, options = {}) => {
   const token = localStorage.getItem('aura_token');
-  const response = await fetch(`/api${url}`, {
+  const response = await fetch(`${API_BASE_URL}/api${url}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

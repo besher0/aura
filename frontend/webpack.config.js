@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   entry: './frontend/src/main.jsx',
@@ -15,6 +16,11 @@ module.exports = {
     ],
   },
   resolve: { extensions: ['.js', '.jsx'] },
-  plugins: [new HtmlWebpackPlugin({ template: './frontend/public/index.html' })],
+  plugins: [
+    new HtmlWebpackPlugin({ template: './frontend/public/index.html' }),
+    new webpack.DefinePlugin({
+      'process.env.API_BASE_URL': JSON.stringify(process.env.API_BASE_URL || ''),
+    }),
+  ],
   devServer: { port: 8080, historyApiFallback: true, proxy: [{ context: ['/api'], target: 'http://localhost:8081' }] },
 };
