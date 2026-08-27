@@ -26,4 +26,15 @@ async function login(req, res) {
 async function me(req, res) {
   return ok(res, await user.findById(req.user.id));
 }
-module.exports = { register, login, me };
+async function changePassword(req, res) {
+  const found = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!found || !(await bcrypt.compare(req.body.currentPassword, found.passwordHash))) {
+    return res.status(401).json({ success: false, message: 'Current password is incorrect', code: 'PASSWORD_INVALID' });
+  }
+  await prisma.user.update({
+    where: { id: req.user.id },
+    data: { passwordHash: await bcrypt.hash(req.body.newPassword, 12) },
+  });
+  return ok(res, { changed: true });
+}
+module.exports = { register, login, me, changePassword };

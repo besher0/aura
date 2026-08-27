@@ -22,6 +22,7 @@ export const api = {
   stores: () => request('/stores'),
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  changePassword: (data) => request('/auth/password', { method: 'PATCH', body: JSON.stringify(data) }),
   cart: () => request('/cart'),
   addCart: (productId, quantity = 1) =>
     request('/cart/items', { method: 'POST', body: JSON.stringify({ productId, quantity }) }),
@@ -33,5 +34,7 @@ export const api = {
   removeFavorite: (productId) => request(`/favorites/${productId}`, { method: 'DELETE' }),
   orders: () => request('/orders'),
   createOrder: (address) => request('/orders', { method: 'POST', body: JSON.stringify({ address }) }),
+  updateOrderStatus: (id, status) =>
+    request(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   dashboard: () => request('/admin/dashboard'),
 };

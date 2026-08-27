@@ -19,8 +19,8 @@ async function addFavorite(req, res) {
   return ok(res, favorite, 201);
 }
 async function removeFavorite(req, res) {
-  await prisma.favorite.delete({
-    where: { userId_productId: { userId: req.user.id, productId: req.params.productId } },
+  await prisma.favorite.deleteMany({
+    where: { userId: req.user.id, productId: req.params.productId },
   });
   return res.status(204).send();
 }

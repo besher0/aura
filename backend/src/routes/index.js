@@ -16,6 +16,7 @@ const adminOnly = [requireAuth, requireRole('ADMIN')];
 router.post('/auth/register', validate(schemas.register), auth.register);
 router.post('/auth/login', validate(schemas.login), auth.login);
 router.get('/auth/me', requireAuth, auth.me);
+router.patch('/auth/password', requireAuth, validate(schemas.changePassword), auth.changePassword);
 
 router.get('/products', validate(schemas.listProducts), catalog.listProducts);
 router.get('/products/:id', catalog.getProduct);

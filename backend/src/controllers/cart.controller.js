@@ -20,12 +20,16 @@ async function addItem(req, res) {
   });
   if ((current?.quantity || 0) + quantity > product.stock)
     return res.status(409).json({ success: false, message: 'Insufficient stock', code: 'INSUFFICIENT_STOCK' });
-  const item = await prisma.cartItem.upsert({
-    where: { userId_productId: { userId: req.user.id, productId: req.body.productId } },
-    update: { quantity: { increment: quantity } },
-    create: { userId: req.user.id, productId: req.body.productId, quantity },
-    include: { product: true },
-  });
+  const item = current
+    ? await prisma.cartItem.update({
+        where: { userId_productId: { userId: req.user.id, productId: product.id } },
+        data: { quantity: { increment: quantity } },
+        include: { product: true },
+      })
+    : await prisma.cartItem.create({
+        data: { userId: req.user.id, productId: product.id, quantity },
+        include: { product: true },
+      });
   return ok(res, item, 201);
 }
 async function updateItem(req, res) {

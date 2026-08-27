@@ -24,6 +24,7 @@ const envelope = (body, params = empty, query = empty) => z.object({ body, param
 module.exports = {
   login: envelope(z.object({ email: z.string().email(), password: z.string().min(6) })),
   register: envelope(z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(6) })),
+  changePassword: envelope(z.object({ currentPassword: z.string().min(6), newPassword: z.string().min(6) })),
   id: envelope(empty, idParams),
   productData: envelope(productFields),
   productUpdate: envelope(productFields, idParams),

@@ -9,6 +9,7 @@ export function AdminPanel() {
   const [tab, setTab] = useState('products');
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [stores, setStores] = useState([]);
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
@@ -29,6 +30,9 @@ export function AdminPanel() {
   useEffect(() => {
     request('/categories')
       .then(setCategories)
+      .catch(() => {});
+    request('/stores')
+      .then(setStores)
       .catch(() => {});
     load();
   }, [tab]);
@@ -63,20 +67,30 @@ export function AdminPanel() {
     }
   };
 
-  const startEdit = (item) =>
-    setEditing(item.id) || setForm({ ...blank, ...item, price: String(item.price || ''), stock: item.stock || 0 });
-  const title = tab === 'products' ? 'المنتجات' : tab === 'categories' ? 'الأقسام' : 'المتاجر';
+  const startEdit = (item) => {
+    setEditing(item.id);
+    setForm({ ...blank, ...item, price: String(item.price || ''), stock: item.stock || 0 });
+  };
+
+  const title = tab === 'products' ? 'المنتجات' : tab === 'categories' ? 'الفئات' : 'المتاجر';
 
   return (
     <div className="admin-layout">
-      <aside className="sidebar">
+      <aside className="sidebar admin-sidebar">
         <Link className="brand" to="/admin">
           Aura
         </Link>
         <Link to="/admin">لوحة التحكم</Link>
-        <button onClick={() => setTab('products')}>المنتجات</button>
-        <button onClick={() => setTab('categories')}>الأقسام</button>
-        <button onClick={() => setTab('stores')}>المتاجر</button>
+        <Link to="/admin/orders">الطلبات</Link>
+        <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>
+          المنتجات
+        </button>
+        <button className={tab === 'categories' ? 'active' : ''} onClick={() => setTab('categories')}>
+          الفئات
+        </button>
+        <button className={tab === 'stores' ? 'active' : ''} onClick={() => setTab('stores')}>
+          المتاجر
+        </button>
         <Link to="/" onClick={() => localStorage.removeItem('aura_token')}>
           تسجيل الخروج
         </Link>
@@ -85,9 +99,6 @@ export function AdminPanel() {
         <div className="content">
           <div className="section-head">
             <h1>إدارة {title}</h1>
-            <Link className="muted" to="/admin">
-              لوحة التحكم
-            </Link>
           </div>
           {error && <p className="error">{error}</p>}
           <form className="stat" onSubmit={submit}>
@@ -119,13 +130,13 @@ export function AdminPanel() {
                     />
                   </label>
                   <label className="field">
-                    القسم
+                    الفئة
                     <select
                       required
                       value={form.categoryId}
                       onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                     >
-                      <option value="">اختر القسم</option>
+                      <option value="">اختر الفئة</option>
                       {categories.map((category) => (
                         <option key={category.id} value={category.id}>
                           {category.name}
@@ -134,12 +145,19 @@ export function AdminPanel() {
                     </select>
                   </label>
                   <label className="field">
-                    معرّف المتجر
-                    <input
+                    المتجر / المطعم
+                    <select
                       required
                       value={form.storeId}
                       onChange={(e) => setForm({ ...form, storeId: e.target.value })}
-                    />
+                    >
+                      <option value="">اختر المتجر / المطعم</option>
+                      {stores.map((store) => (
+                        <option key={store.id} value={store.id}>
+                          {store.name}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </>
               )}
@@ -157,30 +175,32 @@ export function AdminPanel() {
                 />
               </label>
             </div>
-            <button className="primary" disabled={loading}>
-              {editing ? 'حفظ التعديل' : 'إضافة'}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(null);
-                  setForm(blank);
-                }}
-              >
-                إلغاء
+            <div className="form-actions">
+              <button className="primary" disabled={loading}>
+                {editing ? 'حفظ التعديل' : 'إضافة'}
               </button>
-            )}
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(null);
+                    setForm(blank);
+                  }}
+                >
+                  إلغاء
+                </button>
+              )}
+            </div>
           </form>
           <div className="grid section">
             {loading ? (
-              <div className="state">جار التحميل...</div>
+              <div className="state">جاري التحميل...</div>
             ) : (
               items.map((item) => (
                 <article className="card" key={item.id}>
                   <div className="card-body">
                     <h3>{item.name}</h3>
-                    <p className="muted">{item.description || item.type || ''}</p>
+                    <p className="muted">{item.description || item.type || item.store?.name || ''}</p>
                     {item.price && <span className="price">{Number(item.price).toLocaleString('ar-SA')} ر.س</span>}
                     <div className="card-actions">
                       <button onClick={() => startEdit(item)}>تعديل</button>
