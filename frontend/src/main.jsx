@@ -56,9 +56,11 @@ function Page({ title, children }) {
     <div className="shell">
       <Header />
       <main className="content">
-        <div className="section-head">
-          <h1>{title}</h1>
-        </div>
+        {title && (
+          <div className="section-head">
+            <h1>{title}</h1>
+          </div>
+        )}
         {children}
       </main>
       <BottomNav />
@@ -90,6 +92,10 @@ function ProductCard({ product, quantity = 0, onIncrease, onDecrease, isFavorite
               <span className="material-symbols-outlined">{isFavorite ? 'favorite' : 'favorite_border'}</span>
             </button>
             <div className="quantity-stepper">
+              <button className="icon-btn" onClick={() => onIncrease(product.id)} aria-label="زيادة الكمية">
+                <span className="material-symbols-outlined">add</span>
+              </button>
+              <span>{quantity}</span>
               <button
                 className="icon-btn"
                 onClick={() => onDecrease(product.id)}
@@ -97,10 +103,6 @@ function ProductCard({ product, quantity = 0, onIncrease, onDecrease, isFavorite
                 aria-label="تقليل الكمية"
               >
                 <span className="material-symbols-outlined">remove</span>
-              </button>
-              <span>{quantity}</span>
-              <button className="icon-btn" onClick={() => onIncrease(product.id)} aria-label="زيادة الكمية">
-                <span className="material-symbols-outlined">add</span>
               </button>
             </div>
           </span>
@@ -207,12 +209,17 @@ function Home() {
               عرض الكل
             </Link>
           </div>
-          <div className="chips">
+          <div className="chips category-strip">
             <Link className="chip active" to="/">
               الكل
             </Link>
-            {categories.slice(0, 5).map((category) => (
-              <Link className="chip" to={`/categories?categoryId=${category.id}`} key={category.id}>
+            {categories.map((category) => (
+              <Link
+                className="chip"
+                to={`/categories?categoryId=${category.id}`}
+                title={category.name}
+                key={category.id}
+              >
                 {category.name}
               </Link>
             ))}
@@ -228,7 +235,7 @@ function Home() {
           {loading ? (
             <div className="state">جار التحميل...</div>
           ) : products.length ? (
-            <div className="product-list">
+            <div className="product-list home-product-list">
               {products.map((product) => (
                 <ProductCard
                   product={product}
@@ -311,37 +318,63 @@ function Categories() {
       setFavoriteIds(favoriteIds);
     }
   };
+  const selectedCategory = categoryId ? data.find((category) => category.id === categoryId) : null;
+  const categorySections = (selectedCategory ? [selectedCategory] : data)
+    .map((category) => ({
+      category,
+      products: products.filter((product) => (product.category?.id || product.categoryId) === category.id),
+    }))
+    .filter((section) => selectedCategory || section.products.length);
   return (
-    <Page title="جميع الفئات">
+    <Page>
       {error && <p className="error">{error}</p>}
-      <div className="grid">
+      <div className="category-circles">
+        <Link className={`category-circle ${!categoryId ? 'active' : ''}`} to="/categories">
+          <span className="category-circle-button">
+            <span className="material-symbols-outlined">apps</span>
+          </span>
+          <span title="الكل">الكل</span>
+        </Link>
         {data.map((category) => (
-          <Link className="card" to={`/categories?categoryId=${category.id}`} key={category.id}>
+          <Link
+            className={`category-circle ${category.id === categoryId ? 'active' : ''}`}
+            to={`/categories?categoryId=${category.id}`}
+            key={category.id}
+          >
             <img src={category.imageUrl || image} alt={category.name} />
-            <div className="card-body">
-              <h3>{category.name}</h3>
-              <p className="muted">{category.description || 'تشكيلة مختارة من Aura'}</p>
-              <span className="price">{category._count?.products || 0} منتج</span>
-            </div>
+            <span title={category.name}>{category.name}</span>
           </Link>
         ))}
       </div>
-      <section className="section">
-        <h2>المنتجات</h2>
-        <div className="product-list">
-          {products.map((product) => (
-            <ProductCard
-              product={product}
-              quantity={cartQuantities[product.id] || 0}
-              onIncrease={increaseCart}
-              onDecrease={decreaseCart}
-              isFavorite={favoriteIds.has(product.id)}
-              onFavorite={toggleFavorite}
-              key={product.id}
-            />
-          ))}
-        </div>
-      </section>
+      {categorySections.length ? (
+        categorySections.map((section) => (
+          <section className="section" key={section.category.id}>
+            <div className="section-head">
+              <h2>{section.category.name}</h2>
+              <span className="muted">{section.products.length} منتج</span>
+            </div>
+            {section.products.length ? (
+              <div className="product-list">
+                {section.products.map((product) => (
+                  <ProductCard
+                    product={product}
+                    quantity={cartQuantities[product.id] || 0}
+                    onIncrease={increaseCart}
+                    onDecrease={decreaseCart}
+                    isFavorite={favoriteIds.has(product.id)}
+                    onFavorite={toggleFavorite}
+                    key={product.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="state">لا توجد منتجات ضمن هذه الفئة بعد.</div>
+            )}
+          </section>
+        ))
+      ) : (
+        <div className="state">لا توجد منتجات بعد.</div>
+      )}
     </Page>
   );
 }
@@ -350,6 +383,7 @@ function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [activeStatus, setActiveStatus] = useState('ALL');
   const navigate = useNavigate();
   const statusLabels = {
     PENDING: 'قيد الانتظار',
@@ -357,6 +391,14 @@ function OrdersPage() {
     COMPLETED: 'مكتمل',
     CANCELLED: 'ملغي',
   };
+  const statusTabs = [
+    { value: 'ALL', label: 'الكل' },
+    { value: 'PENDING', label: statusLabels.PENDING },
+    { value: 'PROCESSING', label: statusLabels.PROCESSING },
+    { value: 'COMPLETED', label: statusLabels.COMPLETED },
+    { value: 'CANCELLED', label: statusLabels.CANCELLED },
+  ];
+  const visibleOrders = activeStatus === 'ALL' ? orders : orders.filter((order) => order.status === activeStatus);
 
   useEffect(() => {
     if (!localStorage.getItem('aura_token')) return navigate('/login');
@@ -373,29 +415,54 @@ function OrdersPage() {
       {loading ? (
         <div className="state">جاري تحميل الطلبات...</div>
       ) : orders.length ? (
-        <div className="orders-list">
-          {orders.map((order) => (
-            <article className="order-review" key={order.id}>
-              <div className="order-review-head">
-                <div>
-                  <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
-                  <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
-                </div>
-                <span className={`status-badge ${order.status?.toLowerCase()}`}>
-                  {statusLabels[order.status] || order.status}
-                </span>
-              </div>
-              {order.address && <p className="muted">موقع التسليم: {order.address}</p>}
-              <div className="order-items">
-                {order.items?.map((item) => (
-                  <span key={item.id || `${order.id}-${item.productId}`}>
-                    {item.name} × {item.quantity}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="order-tabs" role="tablist" aria-label="حالات الطلبات">
+            {statusTabs.map((tab) => {
+              const count =
+                tab.value === 'ALL' ? orders.length : orders.filter((order) => order.status === tab.value).length;
+              return (
+                <button
+                  className={activeStatus === tab.value ? 'active' : ''}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStatus === tab.value}
+                  onClick={() => setActiveStatus(tab.value)}
+                  key={tab.value}
+                >
+                  <span>{tab.label}</span>
+                  <strong>{count}</strong>
+                </button>
+              );
+            })}
+          </div>
+          {visibleOrders.length ? (
+            <div className="orders-list">
+              {visibleOrders.map((order) => (
+                <article className="order-review" key={order.id}>
+                  <div className="order-review-head">
+                    <div>
+                      <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
+                      <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
+                    </div>
+                    <span className={`status-badge ${order.status?.toLowerCase()}`}>
+                      {statusLabels[order.status] || order.status}
+                    </span>
+                  </div>
+                  {order.address && <p className="muted">موقع التسليم: {order.address}</p>}
+                  <div className="order-items">
+                    {order.items?.map((item) => (
+                      <span key={item.id || `${order.id}-${item.productId}`}>
+                        {item.name} × {item.quantity}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="state">لا توجد طلبات بهذه الحالة.</div>
+          )}
+        </>
       ) : (
         <div className="state">لا توجد طلبات بعد.</div>
       )}
@@ -472,18 +539,18 @@ function Cart() {
                       onClick={() => change(item, item.quantity - 1)}
                       aria-label="تقليل الكمية"
                     >
-                      -
+                      <span className="material-symbols-outlined">remove</span>
                     </button>
-                    <span>{item.quantity}</span>
+                    <span className="cart-quantity">{item.quantity}</span>
                     <button
                       className="icon-btn"
                       onClick={() => change(item, item.quantity + 1)}
                       aria-label="زيادة الكمية"
                     >
-                      +
+                      <span className="material-symbols-outlined">add</span>
                     </button>
-                    <button className="icon-btn" onClick={() => change(item, 0)} aria-label="حذف من السلة">
-                      ×
+                    <button className="icon-btn cart-remove" onClick={() => change(item, 0)} aria-label="حذف من السلة">
+                      <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
                 </div>
