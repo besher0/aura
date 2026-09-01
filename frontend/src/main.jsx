@@ -788,12 +788,35 @@ function Cart() {
       setMessage(e.message);
     }
   };
+  const saveDeliveryAddress = (address) => {
+    const cleanAddress = address.trim();
+    if (!cleanAddress) {
+      setMessage('اكتب الموقع الجديد أولاً');
+      return false;
+    }
+    if (cleanAddress.length < 5) {
+      setMessage('الموقع قصير جداً');
+      return false;
+    }
+    const nextAddresses = [cleanAddress, ...deliveryAddresses.filter((item) => item !== cleanAddress)].slice(0, 5);
+    localStorage.setItem('aura_delivery_addresses', JSON.stringify(nextAddresses));
+    setDeliveryAddresses(nextAddresses);
+    setSelectedAddress(cleanAddress);
+    setNewAddress('');
+    setMessage('تمت إضافة الموقع');
+    return true;
+  };
+  const addDeliveryAddress = (event) => {
+    event.preventDefault();
+    saveDeliveryAddress(newAddress);
+  };
   const order = async () => {
     const address = newAddress.trim() || selectedAddress;
     if (!address) {
       setMessage('اختر موقع التسليم أو أضف موقعاً جديداً');
       return;
     }
+    if (newAddress.trim() && !saveDeliveryAddress(newAddress)) return;
     try {
       await api.createOrder(address);
       const nextAddresses = [address, ...deliveryAddresses.filter((item) => item !== address)].slice(0, 5);
@@ -810,7 +833,7 @@ function Cart() {
   };
   return (
     <Page title="سلة المشتريات">
-      {message && <p className={message.includes('نجاح') ? '' : 'error'}>{message}</p>}
+      {message && <p className={message.includes('تم') ? 'success' : 'error'}>{message}</p>}
       {items.length ? (
         <>
           <div className="cart-list">
@@ -866,14 +889,15 @@ function Cart() {
                   ))}
                 </select>
               </label>
-              <label className="address-choice add-address">
+              <form className="address-choice add-address" onSubmit={addDeliveryAddress}>
                 <span className="material-symbols-outlined">add_location_alt</span>
                 <input
                   value={newAddress}
                   placeholder="إضافة موقع جديد"
                   onChange={(e) => setNewAddress(e.target.value)}
                 />
-              </label>
+                <button type="submit">حفظ</button>
+              </form>
             </div>
           </section>
 
