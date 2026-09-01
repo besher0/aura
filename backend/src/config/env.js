@@ -3,6 +3,9 @@ const env = {
   JWT_SECRET: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-only-secret'),
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:8080',
   NODE_ENV: process.env.NODE_ENV || 'development',
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
 };
 if (env.NODE_ENV === 'production' && !env.JWT_SECRET) throw new Error('JWT_SECRET is required in production');
 module.exports = env;

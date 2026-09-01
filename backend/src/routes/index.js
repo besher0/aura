@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('multer');
 const validate = require('../middlewares/validate.middleware');
 const { requireAuth, requireRole } = require('../middlewares/auth.middleware');
 const schemas = require('../validators/schemas');
@@ -8,15 +9,25 @@ const users = require('../controllers/user.controller');
 const cart = require('../controllers/cart.controller');
 const favorites = require('../controllers/favorite.controller');
 const orders = require('../controllers/order.controller');
+const reviews = require('../controllers/review.controller');
 const admin = require('../controllers/admin.controller');
 
 const router = express.Router();
 const adminOnly = [requireAuth, requireRole('ADMIN')];
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, callback) => {
+    callback(null, file.mimetype.startsWith('image/'));
+  },
+});
 
 router.post('/auth/register', validate(schemas.register), auth.register);
 router.post('/auth/login', validate(schemas.login), auth.login);
 router.get('/auth/me', requireAuth, auth.me);
 router.patch('/auth/password', requireAuth, validate(schemas.changePassword), auth.changePassword);
+router.patch('/users/me', requireAuth, validate(schemas.profileUpdate), users.updateMe);
+router.post('/users/me/avatar', requireAuth, upload.single('avatar'), users.uploadAvatar);
 
 router.get('/products', validate(schemas.listProducts), catalog.listProducts);
 router.get('/products/:id', catalog.getProduct);
@@ -42,6 +53,8 @@ router.delete('/favorites/:productId', requireAuth, validate(schemas.favoritePro
 router.get('/orders', requireAuth, orders.listOrders);
 router.post('/orders', requireAuth, validate(schemas.order), orders.createOrder);
 router.patch('/orders/:id/status', ...adminOnly, validate(schemas.status), orders.updateStatus);
+router.get('/reviews', requireAuth, reviews.listMyReviews);
+router.post('/reviews', requireAuth, validate(schemas.review), reviews.saveReview);
 
 router.get('/admin/dashboard', ...adminOnly, admin.dashboard);
 router.get('/admin/favorites', ...adminOnly, admin.favoriteAnalytics);

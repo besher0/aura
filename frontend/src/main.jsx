@@ -1,12 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from './api';
 import { AdminPanel } from './admin';
 import { Register } from './auth';
 import './styles.css';
 
 const image = 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=900&q=80';
+const heroImage = 'https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?w=1200&q=85';
+const profileImage = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80';
+const fallbackCategories = [
+  { id: 'fallback-perfume', name: 'عطور', icon: 'styler' },
+  { id: 'fallback-fashion', name: 'أزياء', icon: 'checkroom' },
+  { id: 'fallback-watches', name: 'ساعات', icon: 'watch' },
+  { id: 'fallback-jewelry', name: 'مجوهرات', icon: 'diamond' },
+  { id: 'fallback-beauty', name: 'تجميل', icon: 'brush' },
+];
+
+const categoryIconMap = {
+  عطور: 'styler',
+  أزياء: 'checkroom',
+  ازياء: 'checkroom',
+  ساعات: 'watch',
+  مجوهرات: 'diamond',
+  تجميل: 'brush',
+  مكياج: 'face_retouching_natural',
+};
+
+const money = (value) => `${Number(value || 0).toLocaleString('ar-SA')} ر.س`;
+const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SA');
+const categoryIcon = (name) => categoryIconMap[name] || 'category';
+const favoriteIdSet = (items) => new Set(items.map((item) => item.productId));
 
 function getSavedDeliveryAddresses() {
   try {
@@ -20,12 +44,15 @@ function getSavedDeliveryAddresses() {
 function Header() {
   return (
     <header className="topbar">
+      <button className="topbar-icon" type="button" aria-label="القائمة">
+        <span className="material-symbols-outlined">menu</span>
+      </button>
       <Link className="brand" to="/">
         Aura
       </Link>
-      <Link to="/categories" aria-label="البحث">
-        <span className="material-symbols-outlined">search</span>
-      </Link>
+      <button className="topbar-icon" type="button" aria-label="الإشعارات">
+        <span className="material-symbols-outlined">notifications</span>
+      </button>
     </header>
   );
 }
@@ -35,8 +62,7 @@ function BottomNav() {
   const items = [
     ['/', 'home', 'رئيسية'],
     ['/categories', 'category', 'فئات'],
-    ['/cart', 'shopping_cart', 'السلة'],
-    ['/orders', 'receipt_long', 'طلباتي'],
+    ['/cart', 'shopping_cart', 'سلة'],
     ['/profile', 'person', 'حسابي'],
   ];
   return (
@@ -68,8 +94,19 @@ function Page({ title, children }) {
   );
 }
 
-function ProductCard({ product, quantity = 0, onIncrease, onDecrease, isFavorite = false, onFavorite }) {
-  const favorite = async () => {
+function ProductCard({
+  product,
+  quantity = 0,
+  onIncrease,
+  onDecrease,
+  isFavorite = false,
+  onFavorite,
+  variant = 'tile',
+  showFavorite = true,
+}) {
+  const favorite = async (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (onFavorite) return onFavorite(product.id);
     try {
       await api.favorite(product.id);
@@ -77,37 +114,79 @@ function ProductCard({ product, quantity = 0, onIncrease, onDecrease, isFavorite
       window.alert(e.message);
     }
   };
+  if (variant === 'row') {
+    return (
+      <article className="card product-card product-card-row">
+        <img src={product.imageUrl || image} alt={product.name} />
+        <div className="card-body">
+          <div className="product-info">
+            <h3>{product.name}</h3>
+            <span className="muted">{product.category?.name || 'منتج Aura'}</span>
+            <span className="price">{money(product.price)}</span>
+          </div>
+          <div className="product-actions">
+            <span className={`card-buttons ${isFavorite ? 'has-favorite' : ''}`}>
+              {showFavorite && (
+                <button className="icon-btn" onClick={favorite} aria-label="إضافة للمفضلة">
+                  <span className="material-symbols-outlined">{isFavorite ? 'favorite' : 'favorite_border'}</span>
+                </button>
+              )}
+              <div className="quantity-stepper">
+                <button className="icon-btn" onClick={() => onIncrease(product.id)} aria-label="زيادة الكمية">
+                  <span className="material-symbols-outlined">add</span>
+                </button>
+                <span>{quantity}</span>
+                <button
+                  className="icon-btn"
+                  onClick={() => onDecrease(product.id)}
+                  disabled={!quantity}
+                  aria-label="تقليل الكمية"
+                >
+                  <span className="material-symbols-outlined">remove</span>
+                </button>
+              </div>
+            </span>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <article className="card product-card">
-      <img src={product.imageUrl || image} alt={product.name} />
-      <div className="card-body">
-        <div className="product-info">
-          <h3>{product.name}</h3>
-          <span className="muted">{product.category?.name || 'منتج Aura'}</span>
-          <span className="price">{Number(product.price).toLocaleString('ar-SA')} ر.س</span>
-        </div>
-        <div className="product-actions">
-          <span className={`card-buttons ${isFavorite ? 'has-favorite' : ''}`}>
-            <button className="icon-btn" onClick={favorite} aria-label="إضافة للمفضلة">
-              <span className="material-symbols-outlined">{isFavorite ? 'favorite' : 'favorite_border'}</span>
-            </button>
-            <div className="quantity-stepper">
-              <button className="icon-btn" onClick={() => onIncrease(product.id)} aria-label="زيادة الكمية">
-                <span className="material-symbols-outlined">add</span>
-              </button>
-              <span>{quantity}</span>
-              <button
-                className="icon-btn"
-                onClick={() => onDecrease(product.id)}
-                disabled={!quantity}
-                aria-label="تقليل الكمية"
-              >
-                <span className="material-symbols-outlined">remove</span>
-              </button>
-            </div>
-          </span>
-        </div>
+    <article className="product-tile">
+      <div className="product-tile-media">
+        <Link className="product-tile-image-link" to={`/products/${product.id}`} aria-label={product.name}>
+          <img src={product.imageUrl || image} alt={product.name} />
+        </Link>
+        {product.isNew && <span className="new-badge">جديد</span>}
+        {showFavorite && (
+          <button
+            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+            onClick={favorite}
+            aria-label="إضافة للمفضلة"
+          >
+            <span className="material-symbols-outlined">{isFavorite ? 'favorite' : 'favorite_border'}</span>
+          </button>
+        )}
+        <button
+          className="add-btn"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onIncrease(product.id);
+          }}
+          aria-label="إضافة للسلة"
+        >
+          <span className="material-symbols-outlined">add</span>
+        </button>
       </div>
+      <Link className="product-tile-body" to={`/products/${product.id}`}>
+        <h3>{product.name}</h3>
+        <span className="muted">
+          {product.size || (product.category?.name === 'عطور' ? '50 مل' : product.category?.name) || '50 مل'}
+        </span>
+        <strong className="price">{plainMoney(product.price)}</strong>
+      </Link>
     </article>
   );
 }
@@ -138,6 +217,7 @@ function Home() {
   const [categories, setCategories] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [cartQuantities, setCartQuantities] = useState({});
+  const [selectedHomeCategoryId, setSelectedHomeCategoryId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -152,7 +232,7 @@ function Home() {
     if (localStorage.getItem('aura_token')) {
       api
         .favorites()
-        .then((items) => setFavoriteIds(new Set(items.map((item) => item.productId))))
+        .then((items) => setFavoriteIds(favoriteIdSet(items)))
         .catch(() => {});
       api
         .cart()
@@ -188,55 +268,65 @@ function Home() {
     try {
       if (shouldAdd) await api.favorite(id);
       else await api.removeFavorite(id);
+      const syncedFavorites = await api.favorites();
+      setFavoriteIds(favoriteIdSet(syncedFavorites));
     } catch (e) {
       setError(e.message);
-      setFavoriteIds(favoriteIds);
     }
   };
+  const displayCategories = categories.length ? categories : fallbackCategories;
+  const activeHomeCategory =
+    displayCategories.find((category) => category.id === selectedHomeCategoryId) || displayCategories[0];
+  const categoryProducts =
+    activeHomeCategory && !activeHomeCategory.id?.startsWith?.('fallback-')
+      ? products.filter((product) => (product.category?.id || product.categoryId) === activeHomeCategory.id)
+      : products;
+  const featuredProducts = (categoryProducts.length ? categoryProducts : products).slice(
+    0,
+    Math.max(2, Math.min(6, products.length))
+  );
+  const newProducts = products.slice(1, 5).length ? products.slice(1, 5) : products.slice(0, 4);
   return (
     <div className="shell">
       <Header />
       <main className="content">
-        <section className="hero">
+        <section
+          className="hero"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(95, 62, 63, 0.05), rgba(111, 63, 65, 0.42)), url(${heroImage})`,
+          }}
+        >
           <h1>اكتشفي عطرك الجديد</h1>
           <p>تشكيلة الربيع الحصرية الآن في Aura.</p>
         </section>
         {error && <p className="error">{error}</p>}
-        <section className="section">
-          <div className="section-head">
-            <h2>الفئات</h2>
-            <Link className="muted" to="/categories">
-              عرض الكل
-            </Link>
-          </div>
+        <section className="section category-chip-section">
           <div className="chips category-strip">
-            <Link className="chip active" to="/">
-              الكل
-            </Link>
-            {categories.map((category) => (
-              <Link
-                className="chip"
-                to={`/categories?categoryId=${category.id}`}
+            {displayCategories.map((category, index) => (
+              <button
+                type="button"
+                className={`chip ${activeHomeCategory?.id === category.id ? 'active' : ''}`}
                 title={category.name}
+                onClick={() => setSelectedHomeCategoryId(category.id)}
                 key={category.id}
               >
                 {category.name}
-              </Link>
+              </button>
             ))}
           </div>
         </section>
         <section className="section">
           <div className="section-head">
-            <h2>الأكثر تفضيلاً</h2>
+            <h2>{activeHomeCategory?.name || 'الأكثر تفضيلاً'}</h2>
             <Link className="muted" to="/categories">
               عرض الكل
             </Link>
           </div>
           {loading ? (
             <div className="state">جار التحميل...</div>
-          ) : products.length ? (
+          ) : featuredProducts.length ? (
             <div className="product-list home-product-list">
-              {products.map((product) => (
+              {featuredProducts.map((product) => (
                 <ProductCard
                   product={product}
                   quantity={cartQuantities[product.id] || 0}
@@ -245,6 +335,33 @@ function Home() {
                   isFavorite={favoriteIds.has(product.id)}
                   onFavorite={toggleFavorite}
                   key={product.id}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="state">لا توجد منتجات بعد.</div>
+          )}
+        </section>
+        <section className="section">
+          <div className="section-head">
+            <h2>جديدنا</h2>
+            <Link className="muted" to="/categories">
+              عرض الكل
+            </Link>
+          </div>
+          {loading ? (
+            <div className="state">جار التحميل...</div>
+          ) : newProducts.length ? (
+            <div className="product-list home-product-list">
+              {newProducts.map((product, index) => (
+                <ProductCard
+                  product={{ ...product, isNew: index === 0 }}
+                  quantity={cartQuantities[product.id] || 0}
+                  onIncrease={increaseCart}
+                  onDecrease={decreaseCart}
+                  isFavorite={favoriteIds.has(product.id)}
+                  onFavorite={toggleFavorite}
+                  key={`new-${product.id}`}
                 />
               ))}
             </div>
@@ -277,7 +394,7 @@ function Categories() {
     if (localStorage.getItem('aura_token')) {
       api
         .favorites()
-        .then((items) => setFavoriteIds(new Set(items.map((item) => item.productId))))
+        .then((items) => setFavoriteIds(favoriteIdSet(items)))
         .catch(() => {});
       api
         .cart()
@@ -313,48 +430,60 @@ function Categories() {
     try {
       if (shouldAdd) await api.favorite(id);
       else await api.removeFavorite(id);
+      const syncedFavorites = await api.favorites();
+      setFavoriteIds(favoriteIdSet(syncedFavorites));
     } catch (e) {
       setError(e.message);
-      setFavoriteIds(favoriteIds);
     }
   };
   const selectedCategory = categoryId ? data.find((category) => category.id === categoryId) : null;
+  const displayCategories = data.length ? data : fallbackCategories;
   const categorySections = (selectedCategory ? [selectedCategory] : data)
     .map((category) => ({
       category,
       products: products.filter((product) => (product.category?.id || product.categoryId) === category.id),
     }))
     .filter((section) => selectedCategory || section.products.length);
+  const splitIndex = Math.max(2, Math.ceil(products.length / 2));
+  const visibleCategorySections =
+    !selectedCategory && categorySections.length < 2 && products.length
+      ? [
+          { category: data[0] || fallbackCategories[0], products: products.slice(0, splitIndex) },
+          { category: fallbackCategories[1], products: products.slice(splitIndex) },
+        ].filter((section) => section.products.length)
+      : categorySections;
   return (
     <Page>
       {error && <p className="error">{error}</p>}
-      <div className="category-circles">
-        <Link className={`category-circle ${!categoryId ? 'active' : ''}`} to="/categories">
-          <span className="category-circle-button">
-            <span className="material-symbols-outlined">apps</span>
-          </span>
-          <span title="الكل">الكل</span>
+      <div className="page-head">
+        <h1>جميع الفئات</h1>
+        <Link className="muted" to="/categories">
+          عرض الكل
         </Link>
-        {data.map((category) => (
+      </div>
+      <div className="category-circles">
+        {displayCategories.map((category, index) => (
           <Link
-            className={`category-circle ${category.id === categoryId ? 'active' : ''}`}
-            to={`/categories?categoryId=${category.id}`}
+            className={`category-circle ${category.id === categoryId || (!categoryId && index === 0) ? 'active' : ''}`}
+            to={category.id?.startsWith?.('fallback-') ? '/categories' : `/categories?categoryId=${category.id}`}
             key={category.id}
           >
-            <img src={category.imageUrl || image} alt={category.name} />
+            <span className="category-circle-button">
+              <span className="material-symbols-outlined">{category.icon || categoryIcon(category.name)}</span>
+            </span>
             <span title={category.name}>{category.name}</span>
           </Link>
         ))}
       </div>
-      {categorySections.length ? (
-        categorySections.map((section) => (
+      {visibleCategorySections.length ? (
+        visibleCategorySections.map((section) => (
           <section className="section" key={section.category.id}>
-            <div className="section-head">
+            <div className="section-head category-section-head">
+              <span className="material-symbols-outlined">arrow_back</span>
               <h2>{section.category.name}</h2>
-              <span className="muted">{section.products.length} منتج</span>
             </div>
             {section.products.length ? (
-              <div className="product-list">
+              <div className="product-list category-product-list">
                 {section.products.map((product) => (
                   <ProductCard
                     product={product}
@@ -363,6 +492,7 @@ function Categories() {
                     onDecrease={decreaseCart}
                     isFavorite={favoriteIds.has(product.id)}
                     onFavorite={toggleFavorite}
+                    showFavorite={false}
                     key={product.id}
                   />
                 ))}
@@ -374,6 +504,159 @@ function Categories() {
         ))
       ) : (
         <div className="state">لا توجد منتجات بعد.</div>
+      )}
+    </Page>
+  );
+}
+
+function ProductDetails() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [cartQuantities, setCartQuantities] = useState({});
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setLoading(true);
+    setMessage('');
+    api
+      .product(id)
+      .then(setProduct)
+      .catch((e) => setMessage(e.message || 'تعذر تحميل المنتج'))
+      .finally(() => setLoading(false));
+
+    if (localStorage.getItem('aura_token')) {
+      api
+        .favorites()
+        .then((items) => setIsFavorite(items.some((item) => item.productId === id)))
+        .catch(() => {});
+      api
+        .cart()
+        .then((items) => setCartQuantities(Object.fromEntries(items.map((item) => [item.productId, item.quantity]))))
+        .catch(() => {});
+      api
+        .reviews()
+        .then((items) => {
+          setReviews(items.filter((item) => item.productId === id));
+          const current = items.find((item) => item.productId === id);
+          if (current) setReviewForm({ rating: current.rating, comment: current.comment || '' });
+        })
+        .catch(() => {});
+    }
+  }, [id]);
+
+  const increaseCart = () =>
+    changeCartQuantity({
+      id,
+      quantity: cartQuantities[id] || 0,
+      delta: 1,
+      setQuantities: setCartQuantities,
+      setError: setMessage,
+      navigate,
+    });
+
+  const toggleFavorite = async () => {
+    if (!localStorage.getItem('aura_token')) return navigate('/login');
+    const nextFavorite = !isFavorite;
+    setIsFavorite(nextFavorite);
+    try {
+      if (nextFavorite) await api.favorite(id);
+      else await api.removeFavorite(id);
+    } catch (e) {
+      setMessage(e.message || 'تعذر تحديث الإعجاب');
+    }
+  };
+
+  const submitReview = async (event) => {
+    event.preventDefault();
+    if (!localStorage.getItem('aura_token')) return navigate('/login');
+    try {
+      const saved = await api.saveReview({ productId: id, ...reviewForm });
+      setReviews((items) => [saved, ...items.filter((item) => item.productId !== saved.productId)]);
+      setMessage('تم حفظ التقييم بنجاح');
+    } catch (e) {
+      setMessage(e.message || 'تعذر حفظ التقييم');
+    }
+  };
+
+  return (
+    <Page>
+      {message && <p className={message.includes('تم') ? 'success' : 'error'}>{message}</p>}
+      {loading ? (
+        <div className="state">جاري تحميل المنتج...</div>
+      ) : product ? (
+        <article className="product-details">
+          <div className="details-media">
+            <img src={product.imageUrl || image} alt={product.name} />
+            <button
+              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+              onClick={toggleFavorite}
+              aria-label="إعجاب"
+            >
+              <span className="material-symbols-outlined">{isFavorite ? 'favorite' : 'favorite_border'}</span>
+            </button>
+          </div>
+          <div className="details-body">
+            <span className="muted">{product.category?.name || 'منتج Aura'}</span>
+            <h1>{product.name}</h1>
+            {product.description && <p>{product.description}</p>}
+            <div className="details-price">
+              <strong>{money(product.price)}</strong>
+              <span>{product.stock > 0 ? 'متوفر' : 'غير متوفر حالياً'}</span>
+            </div>
+            <button className="primary full checkout-button" onClick={increaseCart} disabled={product.stock <= 0}>
+              <span className="material-symbols-outlined">add_shopping_cart</span>
+              إضافة للسلة
+            </button>
+          </div>
+
+          <section className="details-review">
+            <h2>قيّمي المنتج</h2>
+            <form className="review-form" onSubmit={submitReview}>
+              <div className="rating-picker" aria-label="التقييم">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    className={Number(reviewForm.rating) >= rating ? 'active' : ''}
+                    type="button"
+                    onClick={() => setReviewForm({ ...reviewForm, rating })}
+                    aria-label={`${rating} من 5`}
+                    key={rating}
+                  >
+                    <span className="material-symbols-outlined">star</span>
+                  </button>
+                ))}
+              </div>
+              <label>
+                <span>ملاحظتك</span>
+                <textarea
+                  value={reviewForm.comment}
+                  placeholder="اكتبي رأيك بالمنتج"
+                  onChange={(event) => setReviewForm({ ...reviewForm, comment: event.target.value })}
+                />
+              </label>
+              <button className="primary full">حفظ التقييم</button>
+            </form>
+            {reviews.length ? (
+              <div className="review-list">
+                {reviews.map((review) => (
+                  <article key={review.id}>
+                    <strong>{review.product?.name || product.name}</strong>
+                    <span>{'★'.repeat(review.rating)}</span>
+                    {review.comment && <p>{review.comment}</p>}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="inline-state">لا يوجد تقييم محفوظ لهذا المنتج بعد.</div>
+            )}
+          </section>
+        </article>
+      ) : (
+        <div className="state">المنتج غير متوفر.</div>
       )}
     </Page>
   );
@@ -402,10 +685,15 @@ function OrdersPage() {
 
   useEffect(() => {
     if (!localStorage.getItem('aura_token')) return navigate('/login');
+    setLoading(true);
+    setMessage('');
     api
       .orders()
       .then(setOrders)
-      .catch((e) => setMessage(e.message))
+      .catch((e) => {
+        if (e.message === 'Authentication required') navigate('/login');
+        else setMessage(e.message || 'تعذر تحميل الطلبات');
+      })
       .finally(() => setLoading(false));
   }, [navigate]);
 
@@ -515,6 +803,7 @@ function Cart() {
       setNewAddress('');
       setItems([]);
       setMessage('تم تأكيد طلبك بنجاح');
+      navigate('/orders');
     } catch (e) {
       setMessage(e.message);
     }
@@ -526,43 +815,48 @@ function Cart() {
         <>
           <div className="cart-list">
             {items.map((item) => (
-              <article className="card cart-card" key={item.productId}>
-                <img src={item.product.imageUrl || image} alt={item.product.name} />
-                <div className="card-body">
+              <article className="cart-card" key={item.productId}>
+                <div className="cart-image-wrap">
+                  <img src={item.product.imageUrl || image} alt={item.product.name} />
+                  <button className="cart-remove" onClick={() => change(item, 0)} aria-label="حذف من السلة">
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div className="cart-item-info">
                   <h3>{item.product.name}</h3>
-                  <p>
-                    {item.quantity} × {Number(item.product.price).toLocaleString('ar-SA')} ر.س
-                  </p>
-                  <div className="cart-actions">
-                    <button
-                      className="icon-btn"
-                      onClick={() => change(item, item.quantity - 1)}
-                      aria-label="تقليل الكمية"
-                    >
-                      <span className="material-symbols-outlined">remove</span>
-                    </button>
-                    <span className="cart-quantity">{item.quantity}</span>
-                    <button
-                      className="icon-btn"
-                      onClick={() => change(item, item.quantity + 1)}
-                      aria-label="زيادة الكمية"
-                    >
-                      <span className="material-symbols-outlined">add</span>
-                    </button>
-                    <button className="icon-btn cart-remove" onClick={() => change(item, 0)} aria-label="حذف من السلة">
-                      <span className="material-symbols-outlined">delete</span>
-                    </button>
-                  </div>
+                  <span>
+                    {item.quantity} × {plainMoney(item.product.price)}
+                  </span>
+                  <strong>{plainMoney(Number(item.product.price) * item.quantity)}</strong>
+                </div>
+                <div className="cart-qty">
+                  <button onClick={() => change(item, item.quantity + 1)} aria-label="زيادة الكمية">
+                    <span className="material-symbols-outlined">add</span>
+                  </button>
+                  <strong>{item.quantity}</strong>
+                  <button onClick={() => change(item, item.quantity - 1)} aria-label="تقليل الكمية">
+                    <span className="material-symbols-outlined">remove</span>
+                  </button>
                 </div>
               </article>
             ))}
           </div>
-          <section className="section stat">
-            <span>الإجمالي</span>
-            <strong>{total.toLocaleString('ar-SA')} ر.س</strong>
+          <Link className="show-all-link" to="/categories">
+            عرض الكل
+          </Link>
+
+          <section className="section checkout-card location-card">
+            <div className="location-title">
+              <span className="material-symbols-outlined">location_on</span>
+              <h2>تحديد الموقع أو إضافة موقع جديد</h2>
+            </div>
             <div className="delivery-box">
-              <label className="field">
-                موقع التسليم
+              <label className="address-choice selected">
+                <span className="address-radio" />
+                <span className="address-copy">
+                  <strong>المنزل</strong>
+                  <small>{selectedAddress || 'الرياض، حي العليا، شارع العروبة'}</small>
+                </span>
                 <select value={selectedAddress} onChange={(e) => setSelectedAddress(e.target.value)}>
                   <option value="">اختر موقع التسليم</option>
                   {deliveryAddresses.map((address) => (
@@ -572,16 +866,34 @@ function Cart() {
                   ))}
                 </select>
               </label>
-              <label className="field">
-                إضافة موقع جديد
+              <label className="address-choice add-address">
+                <span className="material-symbols-outlined">add_location_alt</span>
                 <input
                   value={newAddress}
-                  placeholder="مثال: دمشق، المزة، قرب..."
+                  placeholder="إضافة موقع جديد"
                   onChange={(e) => setNewAddress(e.target.value)}
                 />
               </label>
             </div>
-            <button className="primary full" onClick={order}>
+          </section>
+
+          <section className="section checkout-card total-card">
+            <h2>الإجمالي</h2>
+            <div className="total-line">
+              <span>المجموع الفرعي</span>
+              <strong>{money(total)}</strong>
+            </div>
+            <div className="total-line">
+              <span>رسوم التوصيل</span>
+              <strong>{money(25)}</strong>
+            </div>
+            <div className="total-final">
+              <span>الإجمالي</span>
+              <strong>{plainMoney(total + 25)}</strong>
+              <small>ر.س</small>
+            </div>
+            <button className="primary full checkout-button" onClick={order}>
+              <span className="material-symbols-outlined">shopping_cart_checkout</span>
               تأكيد الطلب
             </button>
           </section>
@@ -628,24 +940,44 @@ function EnhancedAccountProfile() {
   const [user, setUser] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [cartQuantities, setCartQuantities] = useState({});
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState(null);
+  const [activeSection, setActiveSection] = useState('personal');
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!localStorage.getItem('aura_token')) return navigate('/login');
-    Promise.all([api.me(), api.favorites(), api.orders(), api.cart()])
-      .then(([userData, favoriteData, orderData, cartData]) => {
+    let mounted = true;
+    api
+      .me()
+      .then(async (userData) => {
+        if (!mounted) return;
         setUser(userData);
-        setFavorites(favoriteData);
-        setOrders(orderData);
-        setCartQuantities(Object.fromEntries(cartData.map((item) => [item.productId, item.quantity])));
+        setProfileForm({ name: userData.name || '', email: userData.email || '' });
+        const results = await Promise.allSettled([api.favorites(), api.orders(), api.cart(), api.reviews()]);
+        if (!mounted) return;
+        const [favoriteData, orderData, cartData, reviewData] = results;
+        if (favoriteData.status === 'fulfilled') setFavorites(favoriteData.value);
+        if (orderData.status === 'fulfilled') setOrders(orderData.value);
+        if (cartData.status === 'fulfilled') {
+          setCartQuantities(Object.fromEntries(cartData.value.map((item) => [item.productId, item.quantity])));
+        }
+        if (reviewData.status === 'fulfilled') setReviews(reviewData.value);
+        if (results.some((result) => result.status === 'rejected')) {
+          setMessage('تعذر تحميل بعض بيانات الحساب، جرّب تحديث الصفحة');
+        }
       })
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
+    return () => {
+      mounted = false;
+    };
   }, [navigate]);
 
   const logout = () => {
@@ -694,25 +1026,58 @@ function EnhancedAccountProfile() {
     }
   };
 
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    setSavingProfile(true);
+    try {
+      const updated = await api.updateProfile(profileForm);
+      setUser(updated);
+      setProfileForm({ name: updated.name || '', email: updated.email || '' });
+      setMessage('تم حفظ البيانات بنجاح');
+    } catch (e) {
+      setMessage(e.message || 'تعذر حفظ البيانات');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const changeAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const updated = await api.uploadAvatar(file);
+      setUser(updated);
+      setMessage('تم تغيير الصورة بنجاح');
+    } catch (e) {
+      setMessage(e.message || 'تعذر تغيير الصورة');
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = '';
+    }
+  };
+
+  const accountRows = [
+    { id: 'orders', label: 'طلباتي', icon: 'local_mall', tone: 'rose' },
+    { id: 'reviews', label: 'تقييماتي', icon: 'star', tone: 'sage' },
+    { id: 'favorites', label: 'إعجاباتي', icon: 'favorite', tone: 'pink' },
+    { id: 'personal', label: 'بيانات شخصية', icon: 'person', tone: 'brown' },
+    { id: 'password', label: 'تغيير كلمة المرور', icon: 'lock', tone: 'gray' },
+  ];
+
   return (
-    <Page title="حسابي">
+    <Page>
       {message && <p className={message.includes('تم') ? '' : 'error'}>{message}</p>}
       <section className="account-hero">
-        <div>
-          <span className="muted">بيانات الحساب</span>
-          <h2>{user?.name || 'حساب Aura'}</h2>
-          <p className="muted">{user?.email || 'جاري التحميل...'}</p>
+        <div className="avatar-wrap">
+          <img src={user?.avatarUrl || profileImage} alt={user?.name || 'حساب Aura'} />
+          <label className={uploadingAvatar ? 'uploading' : ''} aria-label="تعديل الصورة">
+            <span className="material-symbols-outlined">edit</span>
+            <input type="file" accept="image/*" onChange={changeAvatar} disabled={uploadingAvatar} />
+          </label>
         </div>
-        <div className="account-summary">
-          <span>
-            <strong>{favorites.length}</strong>
-            المفضلة
-          </span>
-          <span>
-            <strong>{orders.length}</strong>
-            الطلبات
-          </span>
-        </div>
+        <h1>{user?.name || 'حساب Aura'}</h1>
+        <p>{user?.email || 'جاري التحميل...'}</p>
       </section>
 
       {loading ? (
@@ -720,115 +1085,147 @@ function EnhancedAccountProfile() {
       ) : (
         <>
           <section className="account-menu">
-            <button
-              className={activeSection === 'favorites' ? 'active' : ''}
-              onClick={() => setActiveSection(activeSection === 'favorites' ? null : 'favorites')}
-            >
-              <span className="material-symbols-outlined">favorite</span>
-              إعجاباتي
-              <strong>{favorites.length}</strong>
-            </button>
-            <button
-              className={activeSection === 'orders' ? 'active' : ''}
-              onClick={() => setActiveSection(activeSection === 'orders' ? null : 'orders')}
-            >
-              <span className="material-symbols-outlined">receipt_long</span>
-              طلباتي
-              <strong>{orders.length}</strong>
-            </button>
-            <button
-              className={activeSection === 'password' ? 'active' : ''}
-              onClick={() => setActiveSection(activeSection === 'password' ? null : 'password')}
-            >
-              <span className="material-symbols-outlined">lock</span>
-              تغيير كلمة السر
-            </button>
-          </section>
+            {accountRows.map((row) => (
+              <article className={`account-row ${activeSection === row.id ? 'open' : ''}`} key={row.id}>
+                <button type="button" onClick={() => setActiveSection(activeSection === row.id ? null : row.id)}>
+                  <span className={`account-icon ${row.tone}`}>
+                    <span className="material-symbols-outlined">{row.icon}</span>
+                  </span>
+                  <strong>{row.label}</strong>
+                  <span className="material-symbols-outlined">
+                    {activeSection === row.id ? 'expand_more' : 'chevron_left'}
+                  </span>
+                </button>
 
-          {activeSection === 'favorites' && (
-            <section className="section">
-              <div className="section-head">
-                <h2>إعجاباتي</h2>
-                <span className="muted">{favorites.length} منتج</span>
-              </div>
-              {favorites.length ? (
-                <div className="product-list">
-                  {favorites.map((item) => (
-                    <ProductCard
-                      product={item.product}
-                      quantity={cartQuantities[item.productId] || 0}
-                      onIncrease={increaseCart}
-                      onDecrease={decreaseCart}
-                      isFavorite
-                      onFavorite={removeFavorite}
-                      key={item.productId}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="state">لا توجد منتجات في إعجاباتك بعد.</div>
-              )}
-            </section>
-          )}
+                {row.id === 'personal' && activeSection === 'personal' && (
+                  <form className="personal-panel" onSubmit={saveProfile}>
+                    <label>
+                      <span>الاسم</span>
+                      <input
+                        required
+                        minLength="2"
+                        value={profileForm.name}
+                        onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>البريد الإلكتروني / الهاتف</span>
+                      <input
+                        required
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(event) => setProfileForm({ ...profileForm, email: event.target.value })}
+                      />
+                    </label>
+                    <button className="primary full" disabled={savingProfile}>
+                      حفظ البيانات
+                    </button>
+                  </form>
+                )}
 
-          {activeSection === 'orders' && (
-            <section className="section">
-              <div className="section-head">
-                <h2>طلباتي</h2>
-                <span className="muted">{orders.length} طلب</span>
-              </div>
-              {orders.length ? (
-                <div className="orders-list">
-                  {orders.map((order) => (
-                    <article className="order-card" key={order.id}>
-                      <div>
-                        <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
-                        <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
+                {row.id === 'reviews' && activeSection === 'reviews' && (
+                  <div className="reviews-panel">
+                    {reviews.length ? (
+                      <div className="review-list">
+                        {reviews.map((review) => (
+                          <article key={review.id}>
+                            <strong>{review.product?.name || 'منتج Aura'}</strong>
+                            <span>{'★'.repeat(review.rating)}</span>
+                            {review.comment && <p>{review.comment}</p>}
+                          </article>
+                        ))}
                       </div>
-                      <span className="chip">{order.status}</span>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="state">لا توجد طلبات بعد.</div>
-              )}
-            </section>
-          )}
+                    ) : (
+                      <div className="inline-state">لا توجد تقييمات محفوظة بعد.</div>
+                    )}
+                  </div>
+                )}
 
-          {activeSection === 'password' && (
-            <section className="section account-card">
-              <div>
-                <span className="muted">الأمان</span>
-                <h2>تغيير كلمة السر</h2>
-              </div>
-              <form className="password-form" onSubmit={changePassword}>
-                <label className="field">
-                  كلمة السر الحالية
-                  <input
-                    required
-                    minLength="6"
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  />
-                </label>
-                <label className="field">
-                  كلمة السر الجديدة
-                  <input
-                    required
-                    minLength="6"
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  />
-                </label>
-                <button className="primary">حفظ كلمة السر</button>
-              </form>
-            </section>
-          )}
+                {row.id === 'favorites' && activeSection === 'favorites' && (
+                  <div className="account-inline-panel">
+                    <div className="section-head compact">
+                      <h2>إعجاباتي</h2>
+                      <span className="muted">{favorites.length} منتج</span>
+                    </div>
+                    {favorites.length ? (
+                      <div className="product-list">
+                        {favorites.map((item) => (
+                          <ProductCard
+                            product={item.product}
+                            quantity={cartQuantities[item.productId] || 0}
+                            onIncrease={increaseCart}
+                            onDecrease={decreaseCart}
+                            isFavorite
+                            onFavorite={removeFavorite}
+                            variant="row"
+                            key={item.productId}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="inline-state">لا توجد منتجات في إعجاباتك بعد.</div>
+                    )}
+                  </div>
+                )}
+
+                {row.id === 'orders' && activeSection === 'orders' && (
+                  <div className="account-inline-panel">
+                    <div className="section-head compact">
+                      <h2>طلباتي</h2>
+                      <span className="muted">{orders.length} طلب</span>
+                    </div>
+                    {orders.length ? (
+                      <div className="orders-list">
+                        {orders.map((order) => (
+                          <article className="order-card" key={order.id}>
+                            <div>
+                              <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
+                              <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
+                            </div>
+                            <span className="chip">{order.status}</span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="inline-state">لا توجد طلبات بعد.</div>
+                    )}
+                  </div>
+                )}
+
+                {row.id === 'password' && activeSection === 'password' && (
+                  <div className="account-inline-panel">
+                    <form className="password-form" onSubmit={changePassword}>
+                      <label className="field">
+                        كلمة السر الحالية
+                        <input
+                          required
+                          minLength="6"
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                        />
+                      </label>
+                      <label className="field">
+                        كلمة السر الجديدة
+                        <input
+                          required
+                          minLength="6"
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                        />
+                      </label>
+                      <button className="primary">حفظ كلمة السر</button>
+                    </form>
+                  </div>
+                )}
+              </article>
+            ))}
+          </section>
 
           <section className="section logout-section">
             <button className="primary" onClick={logout}>
+              <span className="material-symbols-outlined">logout</span>
               تسجيل الخروج
             </button>
           </section>
@@ -1226,6 +1623,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/categories" element={<Categories />} />
+        <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/profile" element={<EnhancedAccountProfile />} />

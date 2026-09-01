@@ -43,6 +43,13 @@ module.exports = {
     })
   ),
   order: envelope(z.object({ address: z.string().min(5).optional() })),
+  review: envelope(
+    z.object({
+      productId: z.string().min(1),
+      rating: z.coerce.number().int().min(1).max(5),
+      comment: z.string().max(500).optional().or(z.literal('')),
+    })
+  ),
   status: envelope(z.object({ status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED']) }), idParams),
   listUsers: envelope(
     empty,
@@ -53,6 +60,7 @@ module.exports = {
       limit: z.coerce.number().int().positive().max(100).default(20),
     })
   ),
+  profileUpdate: envelope(z.object({ name: z.string().min(2), email: z.string().email() })),
   userUpdate: envelope(z.object({ name: z.string().min(2), role: z.enum(['USER', 'ADMIN']) }), idParams),
   cartAdd: envelope(
     z.object({ productId: z.string().min(1), quantity: z.coerce.number().int().positive().max(99).default(1) })
