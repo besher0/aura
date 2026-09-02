@@ -914,7 +914,7 @@ function Cart() {
             <div className="total-final">
               <span>الإجمالي</span>
               <strong>{plainMoney(total + 25)}</strong>
-              <small>ر.س</small>
+              <small>ل.س</small>
             </div>
             <button className="primary full checkout-button" onClick={order}>
               <span className="material-symbols-outlined">shopping_cart_checkout</span>
