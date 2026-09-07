@@ -46,5 +46,7 @@ export const api = {
   createOrder: (address) => request('/orders', { method: 'POST', body: JSON.stringify({ address }) }),
   updateOrderStatus: (id, status) =>
     request(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  notifications: () => request('/notifications'),
+  readNotifications: () => request('/notifications/read', { method: 'PATCH' }),
   dashboard: () => request('/admin/dashboard'),
 };

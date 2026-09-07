@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { request } from './api';
 
-const blank = { name: '', description: '', price: '', stock: 0, storeId: '', categoryId: '', type: '' };
+const blank = { name: '', description: '', imageUrl: '', price: '', stock: 0, storeId: '', categoryId: '', type: '' };
 
 export function AdminPanel() {
   const navigate = useNavigate();
@@ -14,6 +14,7 @@ export function AdminPanel() {
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -44,8 +45,8 @@ export function AdminPanel() {
       tab === 'products'
         ? { ...form, price: Number(form.price), stock: Number(form.stock) }
         : tab === 'stores'
-          ? { name: form.name, type: form.type, description: form.description }
-          : { name: form.name, description: form.description };
+          ? { name: form.name, type: form.type, description: form.description, imageUrl: form.imageUrl }
+          : { name: form.name, description: form.description, imageUrl: form.imageUrl };
     try {
       const path = `/${tab}${editing ? `/${editing}` : ''}`;
       await request(path, { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
@@ -72,7 +73,26 @@ export function AdminPanel() {
     setForm({ ...blank, ...item, price: String(item.price || ''), stock: item.stock || 0 });
   };
 
+  const uploadImage = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    setError('');
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      const uploaded = await request('/admin/uploads/catalog-image', { method: 'POST', body });
+      setForm((current) => ({ ...current, imageUrl: uploaded.imageUrl }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploadingImage(false);
+      event.target.value = '';
+    }
+  };
+
   const title = tab === 'products' ? 'المنتجات' : tab === 'categories' ? 'الفئات' : 'المتاجر';
+  const imageInputId = `admin-${tab}-image`;
 
   return (
     <div className="admin-layout">
@@ -174,6 +194,30 @@ export function AdminPanel() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </label>
+              {(tab === 'products' || tab === 'categories') && (
+                <div className="field image-upload-field">
+                  <span>صورة</span>
+                  <div className="image-upload-box">
+                    {form.imageUrl ? (
+                      <img src={form.imageUrl} alt={form.name || 'صورة'} />
+                    ) : (
+                      <span className="material-symbols-outlined">add_photo_alternate</span>
+                    )}
+                    <input id={imageInputId} type="file" accept="image/*" onChange={uploadImage} disabled={uploadingImage} />
+                  </div>
+                  <label className={`image-upload-button ${uploadingImage ? 'disabled' : ''}`} htmlFor={imageInputId}>
+                    {uploadingImage ? 'جار رفع الصورة...' : form.imageUrl ? 'تغيير الصورة' : 'اختيار صورة'}
+                  </label>
+                  {form.imageUrl && (
+                    <input
+                      dir="ltr"
+                      type="url"
+                      value={form.imageUrl}
+                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             <div className="form-actions">
               <button className="primary" disabled={loading}>
@@ -198,10 +242,11 @@ export function AdminPanel() {
             ) : (
               items.map((item) => (
                 <article className="card" key={item.id}>
+                  {item.imageUrl && <img className="admin-card-image" src={item.imageUrl} alt={item.name} />}
                   <div className="card-body">
                     <h3>{item.name}</h3>
                     <p className="muted">{item.description || item.type || item.store?.name || ''}</p>
-                    {item.price && <span className="price">{Number(item.price).toLocaleString('ar-SA')} ر.س</span>}
+                    {item.price && <span className="price">{Number(item.price).toLocaleString('ar-SY')} ل.س</span>}
                     <div className="card-actions">
                       <button onClick={() => startEdit(item)}>تعديل</button>
                       <button className="muted" onClick={() => remove(item.id)}>

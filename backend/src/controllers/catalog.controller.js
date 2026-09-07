@@ -1,5 +1,6 @@
 const { product, category, store } = require('../models');
 const { ok } = require('../utils/response');
+const { uploadImageBuffer } = require('../utils/cloudinary');
 const data = (body) => ({ ...body, imageUrl: body.imageUrl || null });
 async function listProducts(req, res) {
   const { page, limit, search, categoryId } = req.query;
@@ -60,6 +61,13 @@ async function deleteStore(req, res) {
   await store.delete(req.params.id);
   return res.status(204).send();
 }
+async function uploadCatalogImage(req, res) {
+  if (!req.file) {
+    return res.status(422).json({ success: false, message: 'Image is required', code: 'IMAGE_REQUIRED' });
+  }
+  const uploaded = await uploadImageBuffer(req.file.buffer, 'aura/catalog');
+  return ok(res, { imageUrl: uploaded.secure_url });
+}
 module.exports = {
   listProducts,
   getProduct,
@@ -74,4 +82,5 @@ module.exports = {
   createStore,
   updateStore,
   deleteStore,
+  uploadCatalogImage,
 };

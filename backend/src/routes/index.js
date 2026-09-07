@@ -10,6 +10,7 @@ const cart = require('../controllers/cart.controller');
 const favorites = require('../controllers/favorite.controller');
 const orders = require('../controllers/order.controller');
 const reviews = require('../controllers/review.controller');
+const notifications = require('../controllers/notification.controller');
 const admin = require('../controllers/admin.controller');
 
 const router = express.Router();
@@ -42,6 +43,7 @@ router.get('/stores', catalog.listStores);
 router.post('/stores', ...adminOnly, validate(schemas.storeData), catalog.createStore);
 router.patch('/stores/:id', ...adminOnly, validate(schemas.storeUpdate), catalog.updateStore);
 router.delete('/stores/:id', ...adminOnly, validate(schemas.id), catalog.deleteStore);
+router.post('/admin/uploads/catalog-image', ...adminOnly, upload.single('image'), catalog.uploadCatalogImage);
 
 router.get('/cart', requireAuth, cart.listCart);
 router.post('/cart/items', requireAuth, validate(schemas.cartAdd), cart.addItem);
@@ -53,6 +55,8 @@ router.delete('/favorites/:productId', requireAuth, validate(schemas.favoritePro
 router.get('/orders', requireAuth, orders.listOrders);
 router.post('/orders', requireAuth, validate(schemas.order), orders.createOrder);
 router.patch('/orders/:id/status', ...adminOnly, validate(schemas.status), orders.updateStatus);
+router.get('/notifications', requireAuth, notifications.listNotifications);
+router.patch('/notifications/read', requireAuth, notifications.markNotificationsRead);
 router.get('/reviews', requireAuth, reviews.listMyReviews);
 router.post('/reviews', requireAuth, validate(schemas.review), reviews.saveReview);
 

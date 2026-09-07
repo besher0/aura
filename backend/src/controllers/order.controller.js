@@ -1,5 +1,13 @@
 const { prisma } = require('../models');
 const { ok } = require('../utils/response');
+
+const statusLabels = {
+  PENDING: 'قيد الانتظار',
+  PROCESSING: 'قيد التجهيز',
+  COMPLETED: 'مكتمل',
+  CANCELLED: 'ملغي',
+};
+
 async function listOrders(req, res) {
   const where = req.user.role === 'ADMIN' ? {} : { userId: req.user.id };
   return ok(
@@ -55,13 +63,37 @@ async function createOrder(req, res) {
   return ok(res, order, 201);
 }
 async function updateStatus(req, res) {
-  return ok(
-    res,
-    await prisma.order.update({
+  const order = await prisma.$transaction(async (tx) => {
+    const current = await tx.order.findUnique({
       where: { id: req.params.id },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!current) {
+      const error = new Error('Order not found');
+      error.status = 404;
+      error.code = 'ORDER_NOT_FOUND';
+      throw error;
+    }
+
+    const updated = await tx.order.update({
+      where: { id: current.id },
       data: { status: req.body.status },
       include: { items: true },
-    })
-  );
+    });
+
+    if (current.status !== req.body.status) {
+      await tx.notification.create({
+        data: {
+          userId: current.userId,
+          orderId: current.id,
+          title: 'تحديث حالة الطلب',
+          body: `تم تغيير حالة طلبك إلى ${statusLabels[req.body.status] || req.body.status}`,
+        },
+      });
+    }
+
+    return updated;
+  });
+  return ok(res, order);
 }
 module.exports = { listOrders, createOrder, updateStatus };

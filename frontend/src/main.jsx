@@ -27,8 +27,8 @@ const categoryIconMap = {
   مكياج: 'face_retouching_natural',
 };
 
-const money = (value) => `${Number(value || 0).toLocaleString('ar-SA')} ر.س`;
-const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SA');
+const money = (value) => `${Number(value || 0).toLocaleString('ar-SY')} ل.س`;
+const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SY');
 const categoryIcon = (name) => categoryIconMap[name] || 'category';
 const favoriteIdSet = (items) => new Set(items.map((item) => item.productId));
 
@@ -42,6 +42,43 @@ function getSavedDeliveryAddresses() {
 }
 
 function Header() {
+  const [notifications, setNotifications] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  const loadNotifications = () => {
+    if (!localStorage.getItem('aura_token')) return;
+    api
+      .notifications()
+      .then((items) => {
+        setNotifications(items);
+        setUnread(items.filter((item) => !item.read).length);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const toggleNotifications = async () => {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (!nextOpen) return;
+    loadNotifications();
+    if (unread > 0) {
+      try {
+        await api.readNotifications();
+        setUnread(0);
+        setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+      } catch {
+        return;
+      }
+    }
+  };
+
   return (
     <header className="topbar">
       <button className="topbar-icon" type="button" aria-label="القائمة">
@@ -50,9 +87,30 @@ function Header() {
       <Link className="brand" to="/">
         Aura
       </Link>
-      <button className="topbar-icon" type="button" aria-label="الإشعارات">
+      <button className="topbar-icon notification-button" type="button" aria-label="الإشعارات" onClick={toggleNotifications}>
         <span className="material-symbols-outlined">notifications</span>
+        {unread > 0 && <span className="notification-count">{unread}</span>}
       </button>
+      {open && (
+        <div className="notifications-panel">
+          <div className="notifications-head">
+            <strong>الإشعارات</strong>
+          </div>
+          {notifications.length ? (
+            <div className="notifications-list">
+              {notifications.map((notification) => (
+                <article className={notification.read ? '' : 'unread'} key={notification.id}>
+                  <strong>{notification.title}</strong>
+                  <p>{notification.body}</p>
+                  <small>{new Date(notification.createdAt).toLocaleString('ar-SY')}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="notifications-empty">لا توجد إشعارات بعد.</div>
+          )}
+        </div>
+      )}
     </header>
   );
 }
@@ -469,7 +527,11 @@ function Categories() {
             key={category.id}
           >
             <span className="category-circle-button">
-              <span className="material-symbols-outlined">{category.icon || categoryIcon(category.name)}</span>
+              {category.imageUrl ? (
+                <img src={category.imageUrl} alt={category.name} />
+              ) : (
+                <span className="material-symbols-outlined">{category.icon || categoryIcon(category.name)}</span>
+              )}
             </span>
             <span title={category.name}>{category.name}</span>
           </Link>
@@ -729,7 +791,7 @@ function OrdersPage() {
                 <article className="order-review" key={order.id}>
                   <div className="order-review-head">
                     <div>
-                      <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
+                      <strong>{money(order.total)}</strong>
                       <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
                     </div>
                     <span className={`status-badge ${order.status?.toLowerCase()}`}>
@@ -1203,7 +1265,7 @@ function EnhancedAccountProfile() {
                         {orders.map((order) => (
                           <article className="order-card" key={order.id}>
                             <div>
-                              <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
+                              <strong>{money(order.total)}</strong>
                               <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
                             </div>
                             <span className="chip">{order.status}</span>
@@ -1378,7 +1440,7 @@ function RichAdminDashboard() {
     navigate('/login');
   };
 
-  const currency = (value) => `${Number(value || 0).toLocaleString('ar-SA')} ر.س`;
+  const currency = (value) => `${Number(value || 0).toLocaleString('ar-SY')} ل.س`;
   const stats = [
     ['إجمالي المبيعات', currency(data?.sales), 'payments'],
     ['الطلبات', Number(data?.orders || 0).toLocaleString('ar-SA'), 'receipt_long'],
@@ -1604,7 +1666,7 @@ function AdminOrdersPage() {
                     </div>
                     <div>
                       <span className="muted">الإجمالي</span>
-                      <strong>{Number(order.total).toLocaleString('ar-SA')} ر.س</strong>
+                      <strong>{money(order.total)}</strong>
                       <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
                     </div>
                     <label className="field admin-order-status">

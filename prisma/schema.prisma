@@ -32,6 +32,7 @@ model User {
   favorites    Favorite[]
   orders       Order[]
   reviews      Review[]
+  notifications Notification[]
 
   @@index([role])
 }
@@ -115,9 +116,25 @@ model Order {
   createdAt DateTime    @default(now())
   user      User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   items     OrderItem[]
+  notifications Notification[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String?
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read, createdAt])
+  @@index([orderId])
 }
 
 model OrderItem {
