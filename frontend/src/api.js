@@ -12,7 +12,12 @@ export const request = async (url, options = {}) => {
     },
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || 'تعذر إكمال الطلب');
+  if (!response.ok) {
+    const error = new Error(body.message || 'تعذر إكمال الطلب');
+    error.code = body.code;
+    error.errors = body.errors;
+    throw error;
+  }
   return body.data;
 };
 
@@ -20,6 +25,7 @@ export const api = {
   me: () => request('/auth/me'),
   products: (params) => request(`/products?${new URLSearchParams(params)}`),
   product: (id) => request(`/products/${id}`),
+  productReviews: (id) => request(`/products/${id}/reviews`),
   categories: () => request('/categories'),
   stores: () => request('/stores'),
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),

@@ -62,10 +62,15 @@ async function deleteStore(req, res) {
   return res.status(204).send();
 }
 async function uploadCatalogImage(req, res) {
-  if (!req.file) {
-    return res.status(422).json({ success: false, message: 'Image is required', code: 'IMAGE_REQUIRED' });
+  const file = req.file || req.files?.image?.[0] || req.files?.file?.[0] || req.files?.photo?.[0];
+  if (!file) {
+    return res.status(422).json({
+      success: false,
+      message: 'لم تصل الصورة للسيرفر. اختاري ملف صورة من زر الرفع وحاولي مرة ثانية.',
+      code: 'IMAGE_REQUIRED',
+    });
   }
-  const uploaded = await uploadImageBuffer(req.file.buffer, 'aura/catalog');
+  const uploaded = await uploadImageBuffer(file.buffer, 'aura/catalog');
   return ok(res, { imageUrl: uploaded.secure_url });
 }
 module.exports = {

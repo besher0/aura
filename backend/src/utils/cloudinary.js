@@ -10,7 +10,7 @@ cloudinary.config({
 function assertCloudinaryConfigured() {
   if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
     const error = new Error('Cloudinary is not configured');
-    error.status = 500;
+    error.status = 503;
     error.code = 'CLOUDINARY_NOT_CONFIGURED';
     throw error;
   }

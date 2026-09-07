@@ -3,6 +3,15 @@ const { ok } = require('../utils/response');
 
 const includeProduct = { product: { include: { category: true, store: true } } };
 
+async function listProductReviews(req, res) {
+  const reviews = await prisma.review.findMany({
+    where: { productId: req.params.productId },
+    include: { user: { select: { name: true, avatarUrl: true } } },
+    orderBy: { updatedAt: 'desc' },
+  });
+  return ok(res, reviews);
+}
+
 async function listMyReviews(req, res) {
   return ok(
     res,
@@ -38,4 +47,4 @@ async function saveReview(req, res) {
   return ok(res, review, 201);
 }
 
-module.exports = { listMyReviews, saveReview };
+module.exports = { listProductReviews, listMyReviews, saveReview };

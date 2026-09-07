@@ -14,7 +14,7 @@ app.use(
         ? {
             directives: {
               defaultSrc: ["'self'"],
-              imgSrc: ["'self'", 'https://images.unsplash.com'],
+              imgSrc: ["'self'", 'data:', 'https://images.unsplash.com', 'https://res.cloudinary.com'],
               styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               fontSrc: ["'self'", 'https://fonts.gstatic.com'],
               scriptSrc: ["'self'"],

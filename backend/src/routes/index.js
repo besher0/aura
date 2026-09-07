@@ -17,11 +17,22 @@ const router = express.Router();
 const adminOnly = [requireAuth, requireRole('ADMIN')];
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, callback) => {
-    callback(null, file.mimetype.startsWith('image/'));
+    if (!file.mimetype.startsWith('image/')) {
+      const error = new Error('Only image files are allowed');
+      error.status = 422;
+      error.code = 'IMAGE_TYPE_INVALID';
+      return callback(error);
+    }
+    return callback(null, true);
   },
 });
+const catalogImageUpload = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+  { name: 'photo', maxCount: 1 },
+]);
 
 router.post('/auth/register', validate(schemas.register), auth.register);
 router.post('/auth/login', validate(schemas.login), auth.login);
@@ -43,7 +54,7 @@ router.get('/stores', catalog.listStores);
 router.post('/stores', ...adminOnly, validate(schemas.storeData), catalog.createStore);
 router.patch('/stores/:id', ...adminOnly, validate(schemas.storeUpdate), catalog.updateStore);
 router.delete('/stores/:id', ...adminOnly, validate(schemas.id), catalog.deleteStore);
-router.post('/admin/uploads/catalog-image', ...adminOnly, upload.single('image'), catalog.uploadCatalogImage);
+router.post('/admin/uploads/catalog-image', ...adminOnly, catalogImageUpload, catalog.uploadCatalogImage);
 
 router.get('/cart', requireAuth, cart.listCart);
 router.post('/cart/items', requireAuth, validate(schemas.cartAdd), cart.addItem);
@@ -58,6 +69,7 @@ router.patch('/orders/:id/status', ...adminOnly, validate(schemas.status), order
 router.get('/notifications', requireAuth, notifications.listNotifications);
 router.patch('/notifications/read', requireAuth, notifications.markNotificationsRead);
 router.get('/reviews', requireAuth, reviews.listMyReviews);
+router.get('/products/:productId/reviews', reviews.listProductReviews);
 router.post('/reviews', requireAuth, validate(schemas.review), reviews.saveReview);
 
 router.get('/admin/dashboard', ...adminOnly, admin.dashboard);

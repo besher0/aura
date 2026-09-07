@@ -31,6 +31,88 @@ const money = (value) => `${Number(value || 0).toLocaleString('ar-SY')} ل.س`;
 const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SY');
 const categoryIcon = (name) => categoryIconMap[name] || 'category';
 const favoriteIdSet = (items) => new Set(items.map((item) => item.productId));
+const stars = (rating) => '★'.repeat(Math.round(Number(rating) || 0)) + '☆'.repeat(5 - Math.round(Number(rating) || 0));
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const productMatchesSearch = (product, query) => {
+  const term = normalizeText(query);
+  if (!term) return true;
+  return [product.name, product.description, product.category?.name, product.store?.name]
+    .map(normalizeText)
+    .some((value) => value.includes(term));
+};
+const uiLabels = {
+  ar: {
+    menu: 'القائمة',
+    settings: 'الإعدادات',
+    language: 'اللغة',
+    theme: 'المظهر',
+    arabic: 'العربية',
+    english: 'English',
+    light: 'نهاري',
+    dark: 'ليلي',
+    notifications: 'الإشعارات',
+    searchProducts: 'ابحثي عن منتج...',
+    clearSearch: 'مسح البحث',
+    heroTitle: 'اكتشفي عطرك الجديد',
+    heroCopy: 'تشكيلة الربيع الحصرية الآن في Aura.',
+    showAll: 'عرض الكل',
+    featured: 'الأكثر تفضيلاً',
+    newArrivals: 'جديدنا',
+    allCategories: 'جميع الفئات',
+    loading: 'جار التحميل...',
+    noProducts: 'لا توجد منتجات بعد.',
+    home: 'رئيسية',
+    categories: 'فئات',
+    cart: 'سلة',
+    profile: 'حسابي',
+  },
+  en: {
+    menu: 'Menu',
+    settings: 'Settings',
+    language: 'Language',
+    theme: 'Theme',
+    arabic: 'العربية',
+    english: 'English',
+    light: 'Light',
+    dark: 'Dark',
+    notifications: 'Notifications',
+    searchProducts: 'Search products...',
+    clearSearch: 'Clear search',
+    heroTitle: 'Discover your new scent',
+    heroCopy: 'The exclusive spring collection is now at Aura.',
+    showAll: 'View all',
+    featured: 'Featured',
+    newArrivals: 'New arrivals',
+    allCategories: 'All categories',
+    loading: 'Loading...',
+    noProducts: 'No products yet.',
+    home: 'Home',
+    categories: 'Categories',
+    cart: 'Cart',
+    profile: 'Profile',
+  },
+};
+const getSavedUi = () => ({
+  language: localStorage.getItem('aura_language') || 'ar',
+  theme: localStorage.getItem('aura_theme') || 'light',
+});
+
+function applyUiPreferences({ language, theme }) {
+  document.documentElement.lang = language;
+  document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.dataset.theme = theme;
+}
+
+function useUiPreferences() {
+  const [prefs, setPrefs] = useState(getSavedUi);
+  useEffect(() => {
+    applyUiPreferences(prefs);
+    const update = () => setPrefs(getSavedUi());
+    window.addEventListener('aura-ui-preferences', update);
+    return () => window.removeEventListener('aura-ui-preferences', update);
+  }, [prefs.language, prefs.theme]);
+  return prefs;
+}
 
 function getSavedDeliveryAddresses() {
   try {
@@ -42,6 +124,9 @@ function getSavedDeliveryAddresses() {
 }
 
 function Header() {
+  const prefs = useUiPreferences();
+  const labels = uiLabels[prefs.language] || uiLabels.ar;
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -66,6 +151,7 @@ function Header() {
   const toggleNotifications = async () => {
     const nextOpen = !open;
     setOpen(nextOpen);
+    setSettingsOpen(false);
     if (!nextOpen) return;
     loadNotifications();
     if (unread > 0) {
@@ -78,19 +164,59 @@ function Header() {
       }
     }
   };
+  const updatePreference = (key, value) => {
+    localStorage.setItem(key === 'language' ? 'aura_language' : 'aura_theme', value);
+    applyUiPreferences({ ...prefs, [key]: value });
+    window.dispatchEvent(new Event('aura-ui-preferences'));
+  };
 
   return (
     <header className="topbar">
-      <button className="topbar-icon" type="button" aria-label="القائمة">
+      <button
+        className="topbar-icon"
+        type="button"
+        aria-label={labels.menu}
+        onClick={() => {
+          setSettingsOpen((value) => !value);
+          setOpen(false);
+        }}
+      >
         <span className="material-symbols-outlined">menu</span>
       </button>
       <Link className="brand" to="/">
         Aura
       </Link>
-      <button className="topbar-icon notification-button" type="button" aria-label="الإشعارات" onClick={toggleNotifications}>
+      <button className="topbar-icon notification-button" type="button" aria-label={labels.notifications} onClick={toggleNotifications}>
         <span className="material-symbols-outlined">notifications</span>
         {unread > 0 && <span className="notification-count">{unread}</span>}
       </button>
+      {settingsOpen && (
+        <div className="settings-panel">
+          <strong>{labels.settings}</strong>
+          <div className="settings-group">
+            <span>{labels.language}</span>
+            <div className="segmented-control">
+              <button className={prefs.language === 'ar' ? 'active' : ''} type="button" onClick={() => updatePreference('language', 'ar')}>
+                {labels.arabic}
+              </button>
+              <button className={prefs.language === 'en' ? 'active' : ''} type="button" onClick={() => updatePreference('language', 'en')}>
+                {labels.english}
+              </button>
+            </div>
+          </div>
+          <div className="settings-group">
+            <span>{labels.theme}</span>
+            <div className="segmented-control">
+              <button className={prefs.theme === 'light' ? 'active' : ''} type="button" onClick={() => updatePreference('theme', 'light')}>
+                {labels.light}
+              </button>
+              <button className={prefs.theme === 'dark' ? 'active' : ''} type="button" onClick={() => updatePreference('theme', 'dark')}>
+                {labels.dark}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {open && (
         <div className="notifications-panel">
           <div className="notifications-head">
@@ -117,11 +243,13 @@ function Header() {
 
 function BottomNav() {
   const location = useLocation();
+  const prefs = useUiPreferences();
+  const labels = uiLabels[prefs.language] || uiLabels.ar;
   const items = [
-    ['/', 'home', 'رئيسية'],
-    ['/categories', 'category', 'فئات'],
-    ['/cart', 'shopping_cart', 'سلة'],
-    ['/profile', 'person', 'حسابي'],
+    ['/', 'home', labels.home],
+    ['/categories', 'category', labels.categories],
+    ['/cart', 'shopping_cart', labels.cart],
+    ['/profile', 'person', labels.profile],
   ];
   return (
     <nav className="bottom-nav">
@@ -276,8 +404,11 @@ function Home() {
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [cartQuantities, setCartQuantities] = useState({});
   const [selectedHomeCategoryId, setSelectedHomeCategoryId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const prefs = useUiPreferences();
+  const labels = uiLabels[prefs.language] || uiLabels.ar;
   const navigate = useNavigate();
   useEffect(() => {
     Promise.all([api.products({ page: 1, limit: 20 }), api.categories()])
@@ -333,17 +464,18 @@ function Home() {
     }
   };
   const displayCategories = categories.length ? categories : fallbackCategories;
+  const searchedProducts = products.filter((product) => productMatchesSearch(product, searchQuery));
   const activeHomeCategory =
     displayCategories.find((category) => category.id === selectedHomeCategoryId) || displayCategories[0];
   const categoryProducts =
     activeHomeCategory && !activeHomeCategory.id?.startsWith?.('fallback-')
-      ? products.filter((product) => (product.category?.id || product.categoryId) === activeHomeCategory.id)
-      : products;
-  const featuredProducts = (categoryProducts.length ? categoryProducts : products).slice(
+      ? searchedProducts.filter((product) => (product.category?.id || product.categoryId) === activeHomeCategory.id)
+      : searchedProducts;
+  const featuredProducts = (searchQuery ? categoryProducts : categoryProducts.length ? categoryProducts : searchedProducts).slice(
     0,
-    Math.max(2, Math.min(6, products.length))
+    Math.max(2, Math.min(6, searchedProducts.length))
   );
-  const newProducts = products.slice(1, 5).length ? products.slice(1, 5) : products.slice(0, 4);
+  const newProducts = searchedProducts.slice(1, 5).length ? searchedProducts.slice(1, 5) : searchedProducts.slice(0, 4);
   return (
     <div className="shell">
       <Header />
@@ -354,9 +486,22 @@ function Home() {
             backgroundImage: `linear-gradient(180deg, rgba(95, 62, 63, 0.05), rgba(111, 63, 65, 0.42)), url(${heroImage})`,
           }}
         >
-          <h1>اكتشفي عطرك الجديد</h1>
-          <p>تشكيلة الربيع الحصرية الآن في Aura.</p>
+          <h1>{labels.heroTitle}</h1>
+          <p>{labels.heroCopy}</p>
         </section>
+        <div className="product-search">
+          <span className="material-symbols-outlined">search</span>
+          <input
+            value={searchQuery}
+            placeholder={labels.searchProducts}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+          {searchQuery && (
+            <button type="button" aria-label={labels.clearSearch} onClick={() => setSearchQuery('')}>
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          )}
+        </div>
         {error && <p className="error">{error}</p>}
         <section className="section category-chip-section">
           <div className="chips category-strip">
@@ -375,13 +520,13 @@ function Home() {
         </section>
         <section className="section">
           <div className="section-head">
-            <h2>{activeHomeCategory?.name || 'الأكثر تفضيلاً'}</h2>
+            <h2>{activeHomeCategory?.name || labels.featured}</h2>
             <Link className="muted" to="/categories">
-              عرض الكل
+              {labels.showAll}
             </Link>
           </div>
           {loading ? (
-            <div className="state">جار التحميل...</div>
+            <div className="state">{labels.loading}</div>
           ) : featuredProducts.length ? (
             <div className="product-list home-product-list">
               {featuredProducts.map((product) => (
@@ -397,18 +542,18 @@ function Home() {
               ))}
             </div>
           ) : (
-            <div className="state">لا توجد منتجات بعد.</div>
+            <div className="state">{labels.noProducts}</div>
           )}
         </section>
         <section className="section">
           <div className="section-head">
-            <h2>جديدنا</h2>
+            <h2>{labels.newArrivals}</h2>
             <Link className="muted" to="/categories">
-              عرض الكل
+              {labels.showAll}
             </Link>
           </div>
           {loading ? (
-            <div className="state">جار التحميل...</div>
+            <div className="state">{labels.loading}</div>
           ) : newProducts.length ? (
             <div className="product-list home-product-list">
               {newProducts.map((product, index) => (
@@ -424,7 +569,7 @@ function Home() {
               ))}
             </div>
           ) : (
-            <div className="state">لا توجد منتجات بعد.</div>
+            <div className="state">{labels.noProducts}</div>
           )}
         </section>
       </main>
@@ -438,9 +583,12 @@ function Categories() {
   const [products, setProducts] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [cartQuantities, setCartQuantities] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+  const prefs = useUiPreferences();
+  const labels = uiLabels[prefs.language] || uiLabels.ar;
   const categoryId = new URLSearchParams(location.search).get('categoryId');
   useEffect(() => {
     Promise.all([api.categories(), api.products({ page: 1, limit: 100, ...(categoryId ? { categoryId } : {}) })])
@@ -496,27 +644,28 @@ function Categories() {
   };
   const selectedCategory = categoryId ? data.find((category) => category.id === categoryId) : null;
   const displayCategories = data.length ? data : fallbackCategories;
+  const searchedProducts = products.filter((product) => productMatchesSearch(product, searchQuery));
   const categorySections = (selectedCategory ? [selectedCategory] : data)
     .map((category) => ({
       category,
-      products: products.filter((product) => (product.category?.id || product.categoryId) === category.id),
+      products: searchedProducts.filter((product) => (product.category?.id || product.categoryId) === category.id),
     }))
     .filter((section) => selectedCategory || section.products.length);
-  const splitIndex = Math.max(2, Math.ceil(products.length / 2));
+  const splitIndex = Math.max(2, Math.ceil(searchedProducts.length / 2));
   const visibleCategorySections =
-    !selectedCategory && categorySections.length < 2 && products.length
+    !selectedCategory && categorySections.length < 2 && searchedProducts.length
       ? [
-          { category: data[0] || fallbackCategories[0], products: products.slice(0, splitIndex) },
-          { category: fallbackCategories[1], products: products.slice(splitIndex) },
+          { category: data[0] || fallbackCategories[0], products: searchedProducts.slice(0, splitIndex) },
+          { category: fallbackCategories[1], products: searchedProducts.slice(splitIndex) },
         ].filter((section) => section.products.length)
       : categorySections;
   return (
     <Page>
       {error && <p className="error">{error}</p>}
       <div className="page-head">
-        <h1>جميع الفئات</h1>
+        <h1>{labels.allCategories}</h1>
         <Link className="muted" to="/categories">
-          عرض الكل
+          {labels.showAll}
         </Link>
       </div>
       <div className="category-circles">
@@ -536,6 +685,19 @@ function Categories() {
             <span title={category.name}>{category.name}</span>
           </Link>
         ))}
+      </div>
+      <div className="product-search category-search">
+        <span className="material-symbols-outlined">search</span>
+        <input
+          value={searchQuery}
+          placeholder={labels.searchProducts}
+          onChange={(event) => setSearchQuery(event.target.value)}
+        />
+        {searchQuery && (
+          <button type="button" aria-label={labels.clearSearch} onClick={() => setSearchQuery('')}>
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        )}
       </div>
       {visibleCategorySections.length ? (
         visibleCategorySections.map((section) => (
@@ -560,12 +722,12 @@ function Categories() {
                 ))}
               </div>
             ) : (
-              <div className="state">لا توجد منتجات ضمن هذه الفئة بعد.</div>
+              <div className="state">{labels.noProducts}</div>
             )}
           </section>
         ))
       ) : (
-        <div className="state">لا توجد منتجات بعد.</div>
+        <div className="state">{labels.noProducts}</div>
       )}
     </Page>
   );
@@ -585,9 +747,11 @@ function ProductDetails() {
   useEffect(() => {
     setLoading(true);
     setMessage('');
-    api
-      .product(id)
-      .then(setProduct)
+    Promise.all([api.product(id), api.productReviews(id)])
+      .then(([productData, reviewData]) => {
+        setProduct(productData);
+        setReviews(reviewData);
+      })
       .catch((e) => setMessage(e.message || 'تعذر تحميل المنتج'))
       .finally(() => setLoading(false));
 
@@ -603,7 +767,6 @@ function ProductDetails() {
       api
         .reviews()
         .then((items) => {
-          setReviews(items.filter((item) => item.productId === id));
           const current = items.find((item) => item.productId === id);
           if (current) setReviewForm({ rating: current.rating, comment: current.comment || '' });
         })
@@ -637,13 +800,19 @@ function ProductDetails() {
     event.preventDefault();
     if (!localStorage.getItem('aura_token')) return navigate('/login');
     try {
-      const saved = await api.saveReview({ productId: id, ...reviewForm });
-      setReviews((items) => [saved, ...items.filter((item) => item.productId !== saved.productId)]);
+      await api.saveReview({ productId: id, ...reviewForm });
+      const nextReviews = await api.productReviews(id);
+      setReviews(nextReviews);
       setMessage('تم حفظ التقييم بنجاح');
     } catch (e) {
       setMessage(e.message || 'تعذر حفظ التقييم');
     }
   };
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount
+    ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviewCount
+    : 0;
+  const visibleReviews = reviews.slice(0, 3);
 
   return (
     <Page>
@@ -677,7 +846,20 @@ function ProductDetails() {
           </div>
 
           <section className="details-review">
-            <h2>قيّمي المنتج</h2>
+            <div className="review-summary">
+              <div>
+                <h2>التقييمات</h2>
+                <p>{reviewCount ? `${reviewCount} تقييم للمنتج` : 'لا توجد تقييمات بعد'}</p>
+              </div>
+              <strong>
+                {averageRating ? averageRating.toFixed(1) : '0.0'}
+                <span>{stars(averageRating)}</span>
+              </strong>
+            </div>
+
+            <div className="review-form-head">
+              <h2>قيّم المنتج</h2>
+            </div>
             <form className="review-form" onSubmit={submitReview}>
               <div className="rating-picker" aria-label="التقييم">
                 {[1, 2, 3, 4, 5].map((rating) => (
@@ -703,12 +885,24 @@ function ProductDetails() {
               <button className="primary full">حفظ التقييم</button>
             </form>
             {reviews.length ? (
-              <div className="review-list">
-                {reviews.map((review) => (
+              <div className="product-review-list">
+                {visibleReviews.map((review) => (
                   <article key={review.id}>
-                    <strong>{review.product?.name || product.name}</strong>
-                    <span>{'★'.repeat(review.rating)}</span>
-                    {review.comment && <p>{review.comment}</p>}
+                    <div className="review-avatar">
+                      {review.user?.avatarUrl ? (
+                        <img src={review.user.avatarUrl} alt={review.user?.name || 'مستخدم'} />
+                      ) : (
+                        <span>{(review.user?.name || 'ع').slice(0, 1)}</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="product-review-head">
+                        <strong>{review.user?.name || 'مستخدم Aura'}</strong>
+                        <span>{stars(review.rating)}</span>
+                      </div>
+                      {review.comment && <p>{review.comment}</p>}
+                      <small>{new Date(review.updatedAt || review.createdAt).toLocaleDateString('ar-SY')}</small>
+                    </div>
                   </article>
                 ))}
               </div>

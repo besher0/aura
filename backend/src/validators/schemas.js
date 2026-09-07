@@ -1,24 +1,26 @@
 const { z } = require('zod');
 const empty = z.object({});
 const idParams = z.object({ id: z.string().min(1) });
+const optionalText = z.string().optional().nullable();
+const optionalImageUrl = z.string().url().optional().nullable().or(z.literal(''));
 const productFields = z.object({
   name: z.string().min(2),
-  description: z.string().optional(),
+  description: optionalText,
   price: z.coerce.number().nonnegative(),
   stock: z.coerce.number().int().nonnegative(),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  imageUrl: optionalImageUrl,
   storeId: z.string().min(1),
   categoryId: z.string().min(1),
 });
 const categoryFields = z.object({
   name: z.string().min(2),
-  description: z.string().optional(),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  description: optionalText,
+  imageUrl: optionalImageUrl,
 });
 const storeFields = z.object({
   name: z.string().min(2),
   type: z.string().min(2),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  imageUrl: optionalImageUrl,
 });
 const envelope = (body, params = empty, query = empty) => z.object({ body, params, query });
 module.exports = {

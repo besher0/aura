@@ -12,6 +12,13 @@ module.exports = (error, req, res, next) => {
     });
   }
   const status = error.status || (error.code === 'P2025' ? 404 : error.code === 'P2002' ? 409 : 500);
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(422).json({
+      success: false,
+      message: 'حجم الصورة لازم يكون أقل من 8MB',
+      code: 'IMAGE_TOO_LARGE',
+    });
+  }
   res.status(status).json({
     success: false,
     message: status === 500 ? 'Internal server error' : error.message,
