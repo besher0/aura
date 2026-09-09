@@ -32,7 +32,19 @@ const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SY');
 const categoryIcon = (name) => categoryIconMap[name] || 'category';
 const favoriteIdSet = (items) => new Set(items.map((item) => item.productId));
 const stars = (rating) => '★'.repeat(Math.round(Number(rating) || 0)) + '☆'.repeat(5 - Math.round(Number(rating) || 0));
-const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const toWesternDigits = (value) =>
+  String(value || '')
+    .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+const normalizeText = (value) =>
+  toWesternDigits(value)
+    .normalize('NFKD')
+    .replace(/[\u064b-\u065f\u0670]/g, '')
+    .replace(/[\u0622\u0623\u0625\u0671]/g, '\u0627')
+    .replace(/\u0649/g, '\u064a')
+    .replace(/\u0629/g, '\u0647')
+    .replace(/[^\w\u0600-\u06ff]+/g, '')
+    .toLowerCase();
 const productMatchesSearch = (product, query) => {
   const term = normalizeText(query);
   if (!term) return true;
@@ -1831,23 +1843,39 @@ function AdminOrdersPage() {
   const orderDate = (order) => new Date(order.createdAt || 0);
   const orderItemsCount = (order) => (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const shortOrderId = (id) => String(id || '').slice(-8).toUpperCase();
+  const orderSearchValues = (order) => {
+    const date = orderDate(order);
+    return [
+      order.id,
+      shortOrderId(order.id),
+      `#${shortOrderId(order.id)}`,
+      order.user?.name,
+      order.user?.email,
+      order.address,
+      order.status,
+      statusLabels[order.status],
+      order.total,
+      money(order.total),
+      plainMoney(order.total),
+      date.toLocaleDateString('ar-SA'),
+      date.toLocaleDateString('ar-SY'),
+      date.toLocaleDateString('en-US'),
+      ...(order.items || []).flatMap((item) => [
+        item.name,
+        item.productId,
+        item.quantity,
+        item.unitPrice,
+        money(item.unitPrice),
+        plainMoney(item.unitPrice),
+      ]),
+    ];
+  };
   const successfulTotal = orders
     .filter((order) => order.status !== 'CANCELLED')
     .reduce((sum, order) => sum + Number(order.total || 0), 0);
   const normalizedQuery = normalizeText(searchQuery);
   const searchedOrders = normalizedQuery
-    ? orders.filter((order) =>
-        [
-          order.id,
-          shortOrderId(order.id),
-          order.user?.name,
-          order.user?.email,
-          order.address,
-          ...(order.items || []).map((item) => item.name),
-        ]
-          .map(normalizeText)
-          .some((value) => value.includes(normalizedQuery))
-      )
+    ? orders.filter((order) => orderSearchValues(order).map(normalizeText).some((value) => value.includes(normalizedQuery)))
     : orders;
   const filteredOrders =
     activeStatus === 'ALL' ? searchedOrders : searchedOrders.filter((order) => order.status === activeStatus);

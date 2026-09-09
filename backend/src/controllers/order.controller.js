@@ -20,41 +20,38 @@ async function listOrders(req, res) {
   );
 }
 async function createOrder(req, res) {
-  const order = await prisma.$transaction(async (tx) => {
-    const items = await tx.cartItem.findMany({ where: { userId: req.user.id }, include: { product: true } });
-    if (!items.length) {
-      const error = new Error('Cart is empty');
-      error.status = 400;
-      error.code = 'CART_EMPTY';
-      throw error;
-    }
-    const inactiveItem = items.find((item) => !item.product?.active);
-    if (inactiveItem) {
-      const error = new Error('Product not found');
-      error.status = 404;
-      error.code = 'PRODUCT_NOT_FOUND';
-      throw error;
-    }
-    const total = items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
-    const created = await tx.order.create({
-      data: {
-        userId: req.user.id,
-        total,
-        address: req.body.address,
-        items: {
-          create: items.map((item) => ({
-            productId: item.productId,
-            name: item.product.name,
-            unitPrice: item.product.price,
-            quantity: item.quantity,
-          })),
-        },
+  const items = await prisma.cartItem.findMany({ where: { userId: req.user.id }, include: { product: true } });
+  if (!items.length) {
+    const error = new Error('Cart is empty');
+    error.status = 400;
+    error.code = 'CART_EMPTY';
+    throw error;
+  }
+  const inactiveItem = items.find((item) => !item.product?.active);
+  if (inactiveItem) {
+    const error = new Error('Product not found');
+    error.status = 404;
+    error.code = 'PRODUCT_NOT_FOUND';
+    throw error;
+  }
+  const total = items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
+  const order = await prisma.order.create({
+    data: {
+      userId: req.user.id,
+      total,
+      address: req.body.address,
+      items: {
+        create: items.map((item) => ({
+          productId: item.productId,
+          name: item.product.name,
+          unitPrice: item.product.price,
+          quantity: item.quantity,
+        })),
       },
-      include: { items: true },
-    });
-    await tx.cartItem.deleteMany({ where: { userId: req.user.id } });
-    return created;
+    },
+    include: { items: true },
   });
+  await prisma.cartItem.deleteMany({ where: { userId: req.user.id } });
   return ok(res, order, 201);
 }
 async function updateStatus(req, res) {
