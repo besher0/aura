@@ -9,7 +9,7 @@ async function dashboard(req, res) {
     categories,
     stores,
     pendingOrders,
-    lowStockProducts,
+    favoriteTotal,
     recentOrders,
     favoriteProducts,
   ] = await Promise.all([
@@ -20,12 +20,7 @@ async function dashboard(req, res) {
     prisma.category.count({ where: { active: true } }),
     prisma.store.count({ where: { active: true } }),
     prisma.order.count({ where: { status: 'PENDING' } }),
-    prisma.product.findMany({
-      where: { active: true, stock: { lte: 5 } },
-      include: { category: true, store: true },
-      orderBy: { stock: 'asc' },
-      take: 6,
-    }),
+    prisma.favorite.count(),
     prisma.order.findMany({
       include: { user: { select: { name: true, email: true } }, items: true },
       orderBy: { createdAt: 'desc' },
@@ -33,7 +28,15 @@ async function dashboard(req, res) {
     }),
     prisma.product.findMany({
       where: { active: true },
-      select: { id: true, name: true, price: true, stock: true, _count: { select: { favorites: true } } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        imageUrl: true,
+        category: { select: { name: true } },
+        store: { select: { name: true } },
+        _count: { select: { favorites: true } },
+      },
       orderBy: { favorites: { _count: 'desc' } },
       take: 6,
     }),
@@ -46,7 +49,7 @@ async function dashboard(req, res) {
     categories,
     stores,
     pendingOrders,
-    lowStockProducts,
+    favoriteTotal,
     recentOrders,
     favoriteProducts,
   });
@@ -56,7 +59,15 @@ async function favoriteAnalytics(req, res) {
     prisma.favorite.count(),
     prisma.product.findMany({
       where: { active: true },
-      select: { id: true, name: true, price: true, _count: { select: { favorites: true } } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        imageUrl: true,
+        category: { select: { name: true } },
+        store: { select: { name: true } },
+        _count: { select: { favorites: true } },
+      },
       orderBy: { favorites: { _count: 'desc' } },
       take: 10,
     }),

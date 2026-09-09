@@ -15,9 +15,9 @@ async function main() {
   const store = await prisma.store.upsert({ where: { id: 'store-aura' }, update: {}, create: { id: 'store-aura', name: 'متجر Aura', type: 'عطور وتجميل', imageUrl: image } });
   const category = await prisma.category.upsert({ where: { name: 'عطور' }, update: {}, create: { name: 'عطور', description: 'تشكيلة فاخرة من العطور' } });
   for (const item of [
-    ['عطر مسك الورد', '250.00', 25], ['عطر روز إلكسير', '350.00', 18], ['عطر Aura Signature', '520.00', 0],
-    ['كريم الترطيب العميق', '450.00', 42], ['أحمر شفاه كلاسيك', '120.00', 31]
-  ]) await prisma.product.upsert({ where: { id: `product-${item[0]}` }, update: {}, create: { id: `product-${item[0]}`, name: item[0], price: item[1], stock: item[2], imageUrl: image, storeId: store.id, categoryId: category.id } });
+    ['عطر مسك الورد', '250.00'], ['عطر روز إلكسير', '350.00'], ['عطر Aura Signature', '520.00'],
+    ['كريم الترطيب العميق', '450.00'], ['أحمر شفاه كلاسيك', '120.00']
+  ]) await prisma.product.upsert({ where: { id: `product-${item[0]}` }, update: {}, create: { id: `product-${item[0]}`, name: item[0], price: item[1], imageUrl: image, storeId: store.id, categoryId: category.id } });
   console.log(`Seeded Aura data for ${admin.email}`);
 }
 main().finally(() => prisma.$disconnect());

@@ -7,7 +7,6 @@ const productFields = z.object({
   name: z.string().min(2),
   description: optionalText,
   price: z.coerce.number().nonnegative(),
-  stock: z.coerce.number().int().nonnegative(),
   imageUrl: optionalImageUrl,
   storeId: z.string().min(1),
   categoryId: z.string().min(1),

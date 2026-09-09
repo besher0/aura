@@ -27,7 +27,7 @@ const categoryIconMap = {
   مكياج: 'face_retouching_natural',
 };
 
-const money = (value) => `${Number(value || 0).toLocaleString('ar-SY')} ل.س`;
+const money = (value) => `ل.س ${Number(value || 0).toLocaleString('ar-SY')}`;
 const plainMoney = (value) => Number(value || 0).toLocaleString('ar-SY');
 const categoryIcon = (name) => categoryIconMap[name] || 'category';
 const favoriteIdSet = (items) => new Set(items.map((item) => item.productId));
@@ -837,9 +837,8 @@ function ProductDetails() {
             {product.description && <p>{product.description}</p>}
             <div className="details-price">
               <strong>{money(product.price)}</strong>
-              <span>{product.stock > 0 ? 'متوفر' : 'غير متوفر حالياً'}</span>
             </div>
-            <button className="primary full checkout-button" onClick={increaseCart} disabled={product.stock <= 0}>
+            <button className="primary full checkout-button" onClick={increaseCart}>
               <span className="material-symbols-outlined">add_shopping_cart</span>
               إضافة للسلة
             </button>
@@ -912,7 +911,7 @@ function ProductDetails() {
           </section>
         </article>
       ) : (
-        <div className="state">المنتج غير متوفر.</div>
+        <div className="state">تعذر العثور على المنتج.</div>
       )}
     </Page>
   );
@@ -1104,7 +1103,7 @@ function Cart() {
                 <div className="cart-item-info">
                   <h3>{item.product.name}</h3>
                   <span>
-                    {item.quantity} × {plainMoney(item.product.price)}
+                    {item.quantity} × {money(item.product.price)}
                   </span>
                   <strong>{plainMoney(Number(item.product.price) * item.quantity)}</strong>
                 </div>
@@ -1169,8 +1168,7 @@ function Cart() {
             </div>
             <div className="total-final">
               <span>الإجمالي</span>
-              <strong>{plainMoney(total + 25)}</strong>
-              <small>ل.س</small>
+              <strong>{money(total + 25)}</strong>
             </div>
             <button className="primary full checkout-button" onClick={order}>
               <span className="material-symbols-outlined">shopping_cart_checkout</span>
@@ -1634,19 +1632,22 @@ function RichAdminDashboard() {
     navigate('/login');
   };
 
-  const currency = (value) => `${Number(value || 0).toLocaleString('ar-SY')} ل.س`;
+  const currency = money;
   const stats = [
     ['إجمالي المبيعات', currency(data?.sales), 'payments'],
     ['الطلبات', Number(data?.orders || 0).toLocaleString('ar-SA'), 'receipt_long'],
     ['طلبات بانتظار المعالجة', Number(data?.pendingOrders || 0).toLocaleString('ar-SA'), 'pending_actions'],
     ['المستخدمون', Number(data?.users || 0).toLocaleString('ar-SA'), 'group'],
-    ['المنتجات', Number(data?.products || 0).toLocaleString('ar-SA'), 'inventory_2'],
+    ['المنتجات', Number(data?.products || 0).toLocaleString('ar-SA'), 'shopping_bag'],
     [
       'الفئات والمتاجر',
       `${Number(data?.categories || 0).toLocaleString('ar-SA')} / ${Number(data?.stores || 0).toLocaleString('ar-SA')}`,
       'storefront',
     ],
   ];
+  const favoriteProducts = data?.favoriteProducts || [];
+  const favoriteTotal =
+    data?.favoriteTotal ?? favoriteProducts.reduce((sum, product) => sum + Number(product._count?.favorites || 0), 0);
 
   return (
     <div className="admin-layout">
@@ -1725,45 +1726,32 @@ function RichAdminDashboard() {
                   )}
                 </div>
 
-                <div className="dashboard-panel">
+                <div className="dashboard-panel favorite-products-panel">
                   <div className="section-head">
                     <h2>الأكثر تفضيلاً</h2>
+                    <span className="muted">{favoriteTotal.toLocaleString('ar-SA')} إعجاب</span>
                   </div>
-                  {data?.favoriteProducts?.length ? (
-                    <div className="compact-list">
-                      {data.favoriteProducts.map((product) => (
-                        <article key={product.id}>
+                  {favoriteProducts.length ? (
+                    <div className="favorite-products-list">
+                      {favoriteProducts.map((product, index) => (
+                        <article className="favorite-product-row" key={product.id}>
+                          <span className="favorite-product-rank">{index + 1}</span>
+                          <img src={product.imageUrl || image} alt={product.name} />
                           <div>
                             <strong>{product.name}</strong>
-                            <p className="muted">{currency(product.price)}</p>
+                            <p className="muted">
+                              {product.category?.name || product.store?.name || 'منتج'} - {currency(product.price)}
+                            </p>
                           </div>
-                          <span>{product._count?.favorites || 0}</span>
+                          <span className="favorite-count">
+                            <span className="material-symbols-outlined">favorite</span>
+                            {Number(product._count?.favorites || 0).toLocaleString('ar-SA')}
+                          </span>
                         </article>
                       ))}
                     </div>
                   ) : (
                     <div className="state">لا توجد مفضلات بعد.</div>
-                  )}
-                </div>
-
-                <div className="dashboard-panel">
-                  <div className="section-head">
-                    <h2>مخزون منخفض</h2>
-                  </div>
-                  {data?.lowStockProducts?.length ? (
-                    <div className="compact-list">
-                      {data.lowStockProducts.map((product) => (
-                        <article key={product.id}>
-                          <div>
-                            <strong>{product.name}</strong>
-                            <p className="muted">{product.category?.name || product.store?.name || 'منتج'}</p>
-                          </div>
-                          <span>{product.stock}</span>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="state">المخزون بحالة جيدة.</div>
                   )}
                 </div>
               </section>
@@ -1779,6 +1767,10 @@ function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [activeStatus, setActiveStatus] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('NEWEST');
+  const [updatingId, setUpdatingId] = useState('');
   const navigate = useNavigate();
   const statuses = [
     ['PENDING', 'قيد الانتظار'],
@@ -1787,9 +1779,18 @@ function AdminOrdersPage() {
     ['CANCELLED', 'ملغي'],
   ];
   const statusLabels = Object.fromEntries(statuses);
+  const statusIcons = {
+    PENDING: 'schedule',
+    PROCESSING: 'local_shipping',
+    COMPLETED: 'task_alt',
+    CANCELLED: 'block',
+  };
+  const statusTabs = [['ALL', 'الكل'], ...statuses];
 
-  useEffect(() => {
+  const loadOrders = () => {
     if (!localStorage.getItem('aura_token')) return navigate('/login');
+    setLoading(true);
+    setMessage('');
     api
       .orders()
       .then(setOrders)
@@ -1798,6 +1799,10 @@ function AdminOrdersPage() {
         if (e.message === 'Forbidden' || e.message === 'Authentication required') navigate('/login');
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadOrders();
   }, [navigate]);
 
   const logout = () => {
@@ -1807,6 +1812,7 @@ function AdminOrdersPage() {
 
   const changeStatus = async (orderId, status) => {
     const previous = orders;
+    setUpdatingId(orderId);
     setOrders((items) => items.map((order) => (order.id === orderId ? { ...order, status } : order)));
     setMessage('');
     try {
@@ -1816,8 +1822,47 @@ function AdminOrdersPage() {
     } catch (e) {
       setOrders(previous);
       setMessage(e.message);
+    } finally {
+      setUpdatingId('');
     }
   };
+
+  const countByStatus = (status) => orders.filter((order) => order.status === status).length;
+  const orderDate = (order) => new Date(order.createdAt || 0);
+  const orderItemsCount = (order) => (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const shortOrderId = (id) => String(id || '').slice(-8).toUpperCase();
+  const successfulTotal = orders
+    .filter((order) => order.status !== 'CANCELLED')
+    .reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const normalizedQuery = normalizeText(searchQuery);
+  const searchedOrders = normalizedQuery
+    ? orders.filter((order) =>
+        [
+          order.id,
+          shortOrderId(order.id),
+          order.user?.name,
+          order.user?.email,
+          order.address,
+          ...(order.items || []).map((item) => item.name),
+        ]
+          .map(normalizeText)
+          .some((value) => value.includes(normalizedQuery))
+      )
+    : orders;
+  const filteredOrders =
+    activeStatus === 'ALL' ? searchedOrders : searchedOrders.filter((order) => order.status === activeStatus);
+  const visibleOrders = [...filteredOrders].sort((first, second) => {
+    if (sortBy === 'OLDEST') return orderDate(first) - orderDate(second);
+    if (sortBy === 'HIGHEST') return Number(second.total || 0) - Number(first.total || 0);
+    if (sortBy === 'LOWEST') return Number(first.total || 0) - Number(second.total || 0);
+    return orderDate(second) - orderDate(first);
+  });
+  const summaryCards = [
+    ['إجمالي الطلبات', orders.length, 'receipt_long'],
+    ['قيد الانتظار', countByStatus('PENDING'), statusIcons.PENDING],
+    ['قيد التجهيز', countByStatus('PROCESSING'), statusIcons.PROCESSING],
+    ['الإيراد الفعلي', money(successfulTotal), 'payments'],
+  ];
 
   return (
     <div className="admin-layout">
@@ -1835,59 +1880,157 @@ function AdminOrdersPage() {
         </Link>
       </aside>
       <main className="admin-main">
-        <div className="content admin-dashboard">
+        <div className="content admin-dashboard admin-orders-page">
           <div className="admin-heading">
             <div>
               <span className="muted">إدارة المتجر</span>
               <h1>إدارة الطلبات</h1>
             </div>
-            <Link className="primary" to="/admin/manage">
-              إدارة المنتجات
-            </Link>
+            <div className="admin-heading-actions">
+              <button className="admin-refresh-button" type="button" onClick={loadOrders} disabled={loading}>
+                <span className="material-symbols-outlined">refresh</span>
+                تحديث
+              </button>
+              <Link className="primary" to="/admin/manage">
+                إدارة المنتجات
+              </Link>
+            </div>
           </div>
-          {message && <p className={message.includes('تم') ? '' : 'error'}>{message}</p>}
+          {message && <p className={message.includes('تم') ? 'success' : 'error'}>{message}</p>}
           {loading ? (
             <div className="state">جاري تحميل الطلبات...</div>
           ) : orders.length ? (
-            <div className="admin-orders">
-              {orders.map((order) => (
-                <article className="admin-order-card" key={order.id}>
-                  <div className="admin-order-main">
+            <>
+              <section className="admin-orders-summary" aria-label="ملخص الطلبات">
+                {summaryCards.map(([label, value, icon]) => (
+                  <article className="admin-order-summary-card" key={label}>
+                    <span className="material-symbols-outlined">{icon}</span>
                     <div>
-                      <span className="muted">العميل</span>
-                      <h3>{order.user?.name || 'عميل'}</h3>
-                      <p className="muted">{order.user?.email || ''}</p>
+                      <p className="muted">{label}</p>
+                      <strong>{typeof value === 'number' ? Number(value).toLocaleString('ar-SA') : value}</strong>
                     </div>
-                    <div>
-                      <span className="muted">الإجمالي</span>
-                      <strong>{money(order.total)}</strong>
-                      <p className="muted">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
-                    </div>
-                    <label className="field admin-order-status">
-                      الحالة
-                      <select value={order.status} onChange={(e) => changeStatus(order.id, e.target.value)}>
-                        {statuses.map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
+                  </article>
+                ))}
+              </section>
+
+              <section className="admin-orders-tools">
+                <div className="admin-order-search">
+                  <span className="material-symbols-outlined">search</span>
+                  <input
+                    value={searchQuery}
+                    placeholder="بحث باسم العميل أو رقم الطلب"
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                  {searchQuery && (
+                    <button type="button" aria-label="مسح البحث" onClick={() => setSearchQuery('')}>
+                      <span className="material-symbols-outlined">close</span>
+                    </button>
+                  )}
+                </div>
+                <label className="admin-order-sort">
+                  <span className="material-symbols-outlined">sort</span>
+                  <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                    <option value="NEWEST">الأحدث أولاً</option>
+                    <option value="OLDEST">الأقدم أولاً</option>
+                    <option value="HIGHEST">الأعلى قيمة</option>
+                    <option value="LOWEST">الأقل قيمة</option>
+                  </select>
+                </label>
+              </section>
+
+              <div className="admin-order-tabs" role="tablist" aria-label="حالات الطلبات">
+                {statusTabs.map(([value, label]) => {
+                  const count = value === 'ALL' ? orders.length : countByStatus(value);
+                  return (
+                    <button
+                      className={activeStatus === value ? 'active' : ''}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeStatus === value}
+                      onClick={() => setActiveStatus(value)}
+                      key={value}
+                    >
+                      <span className={`status-dot ${value.toLowerCase()}`} />
+                      <span>{label}</span>
+                      <strong>{count.toLocaleString('ar-SA')}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {visibleOrders.length ? (
+                <div className="admin-orders">
+                  {visibleOrders.map((order) => (
+                    <article className={`admin-order-card ${order.status?.toLowerCase() || ''}`} key={order.id}>
+                      <div className="admin-order-topline">
+                        <div className="admin-order-customer">
+                          <span className="admin-order-avatar">{(order.user?.name || 'ع').slice(0, 1)}</span>
+                          <div>
+                            <span className="muted">#{shortOrderId(order.id)}</span>
+                            <h3>{order.user?.name || 'عميل'}</h3>
+                            <p className="muted">{order.user?.email || 'لا يوجد بريد'}</p>
+                          </div>
+                        </div>
+                        <span className={`status-badge ${order.status?.toLowerCase()}`}>
+                          <span className="material-symbols-outlined">{statusIcons[order.status] || 'radio_button_checked'}</span>
+                          {statusLabels[order.status] || order.status}
+                        </span>
+                      </div>
+
+                      <div className="admin-order-main">
+                        <div className="admin-order-metric">
+                          <span className="muted">الإجمالي</span>
+                          <strong>{money(order.total)}</strong>
+                        </div>
+                        <div className="admin-order-metric">
+                          <span className="muted">العناصر</span>
+                          <strong>{orderItemsCount(order).toLocaleString('ar-SA')}</strong>
+                        </div>
+                        <div className="admin-order-metric">
+                          <span className="muted">التاريخ</span>
+                          <strong>{orderDate(order).toLocaleDateString('ar-SA')}</strong>
+                          <small>{orderDate(order).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</small>
+                        </div>
+                        <label className="field admin-order-status">
+                          الحالة
+                          <select
+                            value={order.status}
+                            onChange={(e) => changeStatus(order.id, e.target.value)}
+                            disabled={updatingId === order.id}
+                          >
+                            {statuses.map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      {order.address && (
+                        <div className="admin-order-address">
+                          <span className="material-symbols-outlined">location_on</span>
+                          <p>{order.address}</p>
+                        </div>
+                      )}
+
+                      <div className="admin-order-items">
+                        {(order.items || []).map((item) => (
+                          <span key={item.id || `${order.id}-${item.productId}`}>
+                            <strong>{item.name}</strong>
+                            <small>
+                              {Number(item.quantity || 0).toLocaleString('ar-SA')} × {money(item.unitPrice || 0)}
+                            </small>
+                          </span>
                         ))}
-                      </select>
-                    </label>
-                  </div>
-                  {order.address && <p className="muted">موقع التسليم: {order.address}</p>}
-                  <div className="order-items">
-                    {order.items?.map((item) => (
-                      <span key={item.id || `${order.id}-${item.productId}`}>
-                        {item.name} × {item.quantity}
-                      </span>
-                    ))}
-                  </div>
-                  <span className={`status-badge ${order.status?.toLowerCase()}`}>
-                    {statusLabels[order.status] || order.status}
-                  </span>
-                </article>
-              ))}
-            </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="state">لا توجد طلبات مطابقة.</div>
+              )}
+            </>
           ) : (
             <div className="state">لا توجد طلبات بعد.</div>
           )}

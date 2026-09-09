@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { request } from './api';
 
-const blank = { name: '', description: '', imageUrl: '', price: '', stock: 0, storeId: '', categoryId: '', type: '' };
+const blank = { name: '', description: '', imageUrl: '', price: '', storeId: '', categoryId: '', type: '' };
 const textValue = (value) => value ?? '';
 
 export function AdminPanel() {
@@ -38,7 +38,6 @@ export function AdminPanel() {
           description: textValue(nextForm.description),
           imageUrl: textValue(nextForm.imageUrl),
           price: Number(nextForm.price),
-          stock: Number(nextForm.stock),
           storeId: nextForm.storeId,
           categoryId: nextForm.categoryId,
         }
@@ -107,7 +106,6 @@ export function AdminPanel() {
       imageUrl: textValue(item.imageUrl),
       type: textValue(item.type),
       price: String(item.price || ''),
-      stock: item.stock || 0,
     });
   };
 
@@ -243,16 +241,6 @@ export function AdminPanel() {
                       />
                     </label>
                     <label className="field">
-                      المخزون
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        value={form.stock}
-                        onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                      />
-                    </label>
-                    <label className="field">
                       الفئة
                       <select
                         required
@@ -356,18 +344,17 @@ export function AdminPanel() {
                       <img src={item.imageUrl} alt={item.name} />
                     ) : (
                       <span className="material-symbols-outlined">
-                        {tab === 'products' ? 'inventory_2' : tab === 'categories' ? 'category' : 'storefront'}
+                        {tab === 'products' ? 'shopping_bag' : tab === 'categories' ? 'category' : 'storefront'}
                       </span>
                     )}
                   </div>
                   <div className="catalog-card-body">
                     <div className="catalog-card-title">
                       <h3>{item.name}</h3>
-                      {item.price && <span className="price">{Number(item.price).toLocaleString('ar-SY')} ل.س</span>}
+                      {item.price && <span className="price">ل.س {Number(item.price).toLocaleString('ar-SY')}</span>}
                     </div>
                     <p>{item.description || item.type || item.store?.name || 'بدون وصف'}</p>
                     <div className="catalog-card-meta">
-                      {tab === 'products' && <span>{item.stock || 0} بالمخزون</span>}
                       {item.category?.name && <span>{item.category.name}</span>}
                       {item.store?.name && <span>{item.store.name}</span>}
                       {item._count?.products !== undefined && <span>{item._count.products} منتج</span>}

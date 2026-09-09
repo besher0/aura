@@ -28,17 +28,12 @@ async function createOrder(req, res) {
       error.code = 'CART_EMPTY';
       throw error;
     }
-    for (const item of items) {
-      const updated = await tx.product.updateMany({
-        where: { id: item.productId, active: true, stock: { gte: item.quantity } },
-        data: { stock: { decrement: item.quantity } },
-      });
-      if (updated.count !== 1) {
-        const error = new Error('Insufficient stock');
-        error.status = 409;
-        error.code = 'INSUFFICIENT_STOCK';
-        throw error;
-      }
+    const inactiveItem = items.find((item) => !item.product?.active);
+    if (inactiveItem) {
+      const error = new Error('Product not found');
+      error.status = 404;
+      error.code = 'PRODUCT_NOT_FOUND';
+      throw error;
     }
     const total = items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
     const created = await tx.order.create({
